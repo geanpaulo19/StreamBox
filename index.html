@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StreamBox — Free Live TV Worldwide</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── HEADER ─────────────────────────────────────────────── -->
+  <header id="header">
+    <button id="sidebar-toggle" aria-label="Toggle channel list">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+        <line x1="3" y1="6" x2="21" y2="6"/>
+        <line x1="3" y1="12" x2="21" y2="12"/>
+        <line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    </button>
+
+    <div class="logo">
+      <span class="logo-text">StreamBox</span>
+      <span class="logo-badge">Free Live TV</span>
+    </div>
+
+    <div class="header-search">
+      <div class="header-search-inner">
+        <span class="search-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+        </span>
+        <input type="search" id="search-input" placeholder="Search channels worldwide…" autocomplete="off" spellcheck="false">
+      </div>
+    </div>
+
+    <div class="header-meta">
+      <div class="channel-total" id="channel-total"></div>
+      <div class="live-badge">
+        <div class="live-dot"></div>
+        Live
+      </div>
+      <button class="about-btn" id="about-btn" aria-label="About StreamBox" title="About">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ── SIDEBAR ────────────────────────────────────────────── -->
+  <aside id="sidebar" role="complementary" aria-label="Channel list">
+
+    <!-- Search (visible inside sidebar on mobile) -->
+    <div class="sidebar-section" id="sidebar-search-section">
+      <div class="sidebar-search-wrap">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="search" id="sidebar-search-input" placeholder="Search channels…" autocomplete="off" spellcheck="false">
+      </div>
+    </div>
+
+    <!-- Country selector -->
+    <div class="sidebar-section" id="country-section">
+      <div class="sidebar-label">Country</div>
+      <div class="custom-select" id="country-dropdown" role="combobox" aria-expanded="false" aria-haspopup="listbox" tabindex="0">
+        <div class="custom-select-trigger">
+          <span class="country-flag" id="selected-flag">🌐</span>
+          <span class="custom-select-value" id="selected-label">All Countries</span>
+          <svg class="select-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <ul class="custom-select-list" id="country-list" role="listbox" aria-label="Select country"></ul>
+      </div>
+    </div>
+
+    <!-- Category tabs -->
+    <div class="sidebar-section" id="cat-section">
+      <div class="sidebar-label">Category</div>
+      <div class="cat-tabs" id="cat-tabs">
+        <button class="cat-tab active" data-cat="all">All</button>
+      </div>
+    </div>
+
+    <!-- Channel count -->
+    <div class="channel-count" id="ch-count">Loading channels…</div>
+
+    <!-- Channel list -->
+    <ul id="channel-list" role="listbox" aria-label="TV Channels"></ul>
+  </aside>
+
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+  <!-- ── MAIN ───────────────────────────────────────────────── -->
+  <main id="main">
+
+    <div id="player-wrap">
+      <video id="video-el" playsinline autoplay muted></video>
+
+      <!-- Idle -->
+      <div class="idle-screen" id="idle-screen">
+        <div class="idle-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="2" y1="12" x2="22" y2="12"/>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+          </svg>
+        </div>
+        <div class="idle-title">Free Live TV Worldwide</div>
+        <div class="idle-sub">Pick a country and select a channel to start watching</div>
+      </div>
+
+      <!-- Now Playing badge (auto-fades) -->
+      <div class="player-overlay">
+        <div class="now-playing-badge" id="now-badge">
+          <div class="now-logo" id="now-logo"></div>
+          <div class="now-info">
+            <div class="now-label">Now Streaming</div>
+            <div class="now-ch-name" id="now-name">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Buffering -->
+      <div class="buffer-overlay" id="buffer-overlay">
+        <div class="spinner"></div>
+      </div>
+
+      <!-- Error -->
+      <div class="error-overlay" id="error-overlay">
+        <div class="error-icon">📡</div>
+        <div class="error-msg" id="error-msg">Unable to connect to this stream.</div>
+        <button class="error-retry" id="retry-btn">Try Again</button>
+      </div>
+    </div>
+
+    <!-- Info bar (desktop) / Now-playing strip (mobile) -->
+    <div id="info-bar">
+      <div class="info-thumb" id="info-thumb">
+        <span class="no-logo">📺</span>
+      </div>
+      <div class="info-body">
+        <div class="info-ch-name idle" id="info-name">Select a channel to begin streaming</div>
+        <div class="info-ch-sub" id="info-sub">Free Live TV · Worldwide</div>
+      </div>
+      <div class="info-actions">
+        <button class="info-btn" id="mute-btn" aria-label="Toggle mute" title="Toggle Mute">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+          </svg>
+        </button>
+        <button class="info-btn" id="fullscreen-btn" aria-label="Fullscreen" title="Fullscreen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Suggestions + inline search (mobile only) -->
+    <div id="suggestions-panel">
+      <div class="sug-header">
+        <div class="sug-header-top">
+          <div class="sug-now">
+            <div class="sug-now-thumb" id="mob-info-thumb"><span>📺</span></div>
+            <div class="sug-now-text">
+              <div class="sug-now-name" id="mob-info-name">Select a channel</div>
+              <div class="sug-now-sub" id="mob-info-sub">Free Live TV</div>
+            </div>
+          </div>
+          <div class="sug-controls">
+            <button class="sug-btn" id="mob-mute-btn" aria-label="Toggle mute">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+              </svg>
+            </button>
+            <button class="sug-btn" id="mob-fullscreen-btn" aria-label="Fullscreen">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      <div class="sug-header-bottom">
+          <span class="sug-label" id="sug-label">Up Next</span>
+        </div>
+      </div>
+      <ul id="suggestions-list" aria-label="Suggested channels"></ul>
+    </div>
+
+  </main>
+</div>
+
+<!-- Mobile Bottom Nav -->
+<nav id="mobile-nav" aria-label="Mobile navigation">
+  <button class="mob-tab active" id="mob-watch" aria-label="Watch">
+    <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+    Watch
+  </button>
+  <button class="mob-tab" id="mob-channels" aria-label="Channels">
+    <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+    Channels
+  </button>
+  <button class="mob-tab" id="mob-search" aria-label="Search">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    Search
+  </button>
+  <button class="mob-tab" id="mob-about" aria-label="About">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    About
+  </button>
+</nav>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<!-- ── ABOUT MODAL ───────────────────────────────────────────── -->
+<div id="about-overlay" role="dialog" aria-modal="true" aria-label="About StreamBox">
+  <div id="about-modal">
+    <button id="about-close" aria-label="Close">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+
+    <!-- App identity -->
+    <div class="about-hero">
+      <h1 class="about-title">StreamBox</h1>
+      <p class="about-tagline">Free Live TV from every corner of the world</p>
+    </div>
+
+    <!-- About the app -->
+    <section class="about-section">
+      <h2 class="about-section-title">About the App</h2>
+      <p class="about-text">StreamBox is a free, open-source live TV player that aggregates thousands of publicly available IPTV streams from around the world. No subscriptions, no logins, no ads — just live television, anywhere, any time.</p>
+      <p class="about-text">Channel data is sourced from the <a href="https://github.com/iptv-org/iptv" target="_blank" rel="noopener">iptv-org</a> open database. StreamBox does not host any streams itself.</p>
+    </section>
+
+    <div class="about-divider"></div>
+
+    <!-- Developer -->
+    <section class="about-section">
+      <h2 class="about-section-title">Developer</h2>
+      <div class="about-dev">
+        <div class="about-dev-avatar">👨‍💻</div>
+        <div class="about-dev-info">
+          <div class="about-dev-name">Gean Paulo</div>
+          <div class="about-dev-bio">Web UI/UX Designer and Developer based in Manila, Philippines. Specializes in crafting high-end digital experiences that blend minimalist aesthetics with functional, high-performance code.</div>
+          <a class="about-dev-link" href="https://geanpaulo.com" target="_blank" rel="noopener">geanpaulo.com ↗</a>
+        </div>
+      </div>
+    </section>
+
+    <div class="about-divider"></div>
+
+    <!-- Support / Donate -->
+    <section class="about-section">
+      <h2 class="about-section-title">Support the Project</h2>
+      <p class="about-text">StreamBox is built and maintained in spare time, entirely for free. If it's useful to you, consider buying me a coffee — it helps keep the project alive.</p>
+      <a class="donate-btn" href="https://www.paypal.com/paypalme/geanpaulo" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.144 19.532l1.049-5.751c.11-.605.691-1.002 1.304-.948 2.155.192 6.877.1 8.818-4.002 2.554-5.397-1.168-8.33-6.076-8.33H6.031c-.705 0-1.305.518-1.416 1.215L2.29 17.529a.857.857 0 00.845.993h3.008l.001-.01v.02zm10.608-11.473C16.978 12.5 13.5 13 10.5 13l.948-5.185h2.271c2.5 0 4.5.75 4.033 4.244z"/></svg>
+        Donate via PayPal
+      </a>
+    </section>
+
+    <div class="about-divider"></div>
+
+    <!-- Stats / version -->
+    <div class="about-meta">
+      <span id="about-channel-count">— channels available</span>
+      <span class="about-dot">·</span>
+      <span>Version 1.0.0</span>
+      <span class="about-dot">·</span>
+      <span>Open Source</span>
+    </div>
+  </div>
+</div>
+
+<script src="app.js" defer></script>
+</body>
+</html>
