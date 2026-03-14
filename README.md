@@ -2,7 +2,7 @@
 
 A free, open-source live TV player that streams thousands of publicly available IPTV channels from every country in the world. No subscriptions, no logins, no ads.
 
-**Live Demo:** [geanpaulo.com](https://geanpaulo.com)
+**Live Demo:** [tv.geanpaulo.com](https://tv.geanpaulo.com)
 
 ---
 
