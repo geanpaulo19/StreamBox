@@ -530,7 +530,7 @@ function buildItem(ch, i) {
   /* Logo */
   const wrap = document.createElement('div');
   wrap.className = 'ch-logo-wrap';
-  wrap.appendChild(makeLogoEl(ch.logo, ch.name, 'ch-letter'));
+  wrap.appendChild(makeLogoEl(ch.logo, ch.name, 'ch-letter', ch.country));
 
   /* Text */
   const info = document.createElement('div');
@@ -596,7 +596,40 @@ function buildItem(ch, i) {
 /* Cache of logo URLs that have previously 404'd — skip img for these */
 const failedLogos = new Set();
 
-function makeLogoEl(src, name, fallbackClass) {
+/* ── tv-logo/tv-logos CDN ─────────────────────────────────────
+   Builds a candidate URL from channel name + country code.
+   Format: [name-slug]-[cc].png
+   e.g. "BBC News" + "GB" → bbc-news-gb.png                    */
+const TV_LOGO_BASE = 'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries';
+
+const COUNTRY_DIR = {
+  US:'united-states', GB:'united-kingdom', PH:'philippines',
+  AU:'australia',     CA:'canada',         DE:'germany',
+  FR:'france',        JP:'japan',          KR:'south-korea',
+  CN:'china',         IN:'india',          BR:'brazil',
+  IT:'italy',         ES:'spain',          NL:'netherlands',
+  MX:'mexico',        AR:'argentina',      RU:'russia',
+  PL:'poland',        SE:'sweden',         NO:'norway',
+  DK:'denmark',       FI:'finland',        PT:'portugal',
+  GR:'greece',        TR:'turkey',         SA:'saudi-arabia',
+  AE:'united-arab-emirates', SG:'singapore', MY:'malaysia',
+  TH:'thailand',      ID:'indonesia',      VN:'vietnam',
+  ZA:'south-africa',  NG:'nigeria',        EG:'egypt',
+};
+
+function tvLogoUrl(name, countryCode) {
+  const dir = COUNTRY_DIR[(countryCode || '').toUpperCase()];
+  if (!dir) return null;
+  const slug = name.toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  const cc = countryCode.toLowerCase();
+  return `${TV_LOGO_BASE}/${dir}/${slug}-${cc}.png`;
+}
+
+function makeLogoEl(src, name, fallbackClass, countryCode = '') {
+  /* If we have a known-good src, use it directly */
   if (src && !failedLogos.has(src)) {
     const img = document.createElement('img');
     img.src    = src;
@@ -605,10 +638,33 @@ function makeLogoEl(src, name, fallbackClass) {
     img.height = 38;
     img.onerror = () => {
       failedLogos.add(src);
+      /* Try tv-logo CDN before falling back to letter */
+      const cdn = tvLogoUrl(name, countryCode);
+      if (cdn && !failedLogos.has(cdn)) {
+        img.onerror = () => { failedLogos.add(cdn); img.replaceWith(makeLetterEl(name, fallbackClass)); };
+        img.src = cdn;
+      } else {
+        img.replaceWith(makeLetterEl(name, fallbackClass));
+      }
+    };
+    return img;
+  }
+
+  /* No src — try tv-logo CDN first */
+  const cdn = tvLogoUrl(name, countryCode);
+  if (cdn && !failedLogos.has(cdn)) {
+    const img = document.createElement('img');
+    img.src    = cdn;
+    img.alt    = name;
+    img.width  = 38;
+    img.height = 38;
+    img.onerror = () => {
+      failedLogos.add(cdn);
       img.replaceWith(makeLetterEl(name, fallbackClass));
     };
     return img;
   }
+
   return makeLetterEl(name, fallbackClass);
 }
 function makeLetterEl(name,cls){
@@ -701,7 +757,7 @@ function renderSuggestions() {
 
     const logoWrap = document.createElement('div');
     logoWrap.className = 'sug-logo';
-    logoWrap.appendChild(makeLogoEl(ch.logo, ch.name, 'sug-letter'));
+    logoWrap.appendChild(makeLogoEl(ch.logo, ch.name, 'sug-letter', ch.country));
     const liveBadge = document.createElement('div');
     liveBadge.className = 'sug-live-badge';
     liveBadge.textContent = 'Live';
@@ -763,7 +819,7 @@ function openSearchDropdown(results, q) {
 
       const logo = document.createElement('div');
       logo.className = 'sr-logo';
-      logo.appendChild(makeLogoEl(ch.logo, ch.name, 'sr-letter'));
+      logo.appendChild(makeLogoEl(ch.logo, ch.name, 'sr-letter', ch.country));
 
       const info = document.createElement('div');
       info.className = 'sr-info';
@@ -948,7 +1004,6 @@ function switchTo(ch) {
   const isDash = ch.url.includes('.mpd');
   isDash ? playDash(ch) : playHls(ch);
 
-  showToast(`▶ ${ch.name}`);
   renderSuggestions();
 }
 
@@ -1021,7 +1076,7 @@ function playDash(ch) {
   });
 
   dashPlayer.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, () => {
-    showBuf(false); showBadge(currentChannel);
+    showBuf(false);
   });
 
   dashPlayer.on(dashjs.MediaPlayer.events.PLAYBACK_WAITING, () => showBuf(true));
@@ -1034,6 +1089,75 @@ function hexToBase64url(hex) {
   return btoa(String.fromCharCode(...bytes))
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
+
+function updateEpgUI(prog) {
+  /* Badge programme line */
+  const nowProg  = $('now-programme');
+  const progTitle = $('now-prog-title');
+  const progFill  = $('now-prog-fill');
+
+  /* Info bar EPG strip */
+  const infoEpg   = $('info-epg');
+  const epgTitle  = $('info-epg-title');
+  const epgTime   = $('info-epg-time');
+  const epgFill   = $('info-epg-fill');
+
+  if (!prog) {
+    if (nowProg)  nowProg.hidden  = true;
+    if (infoEpg)  infoEpg.hidden  = true;
+    return;
+  }
+
+  const nowSec   = Math.floor(Date.now() / 1000);
+  const duration = prog.stop_utc - prog.start_utc;
+  const elapsed  = Math.max(0, nowSec - prog.start_utc);
+  const pct      = duration > 0 ? Math.min(100, (elapsed / duration) * 100) : 0;
+
+  const startStr = fmtTime(prog.start_utc);
+  const endStr   = fmtTime(prog.stop_utc);
+  const timeStr  = `${startStr}–${endStr}`;
+
+  /* Now Playing badge */
+  if (nowProg && progTitle && progFill) {
+    progTitle.textContent = prog.title || '';
+    progFill.style.width  = `${pct}%`;
+    nowProg.hidden = false;
+  }
+
+  /* Info bar */
+  if (infoEpg && epgTitle && epgTime && epgFill) {
+    epgTitle.textContent = prog.title || '';
+    epgTime.textContent  = timeStr;
+    epgFill.style.width  = `${pct}%`;
+    infoEpg.hidden = false;
+  }
+}
+
+function fmtTime(utcSec) {
+  const d = new Date(utcSec * 1000);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+async function loadEpg(ch) {
+  /* Clear previous */
+  clearInterval(epgTimer);
+  const nowProg = $('now-programme');
+  const infoEpg = $('info-epg');
+  if (nowProg) nowProg.hidden = true;
+  if (infoEpg) infoEpg.hidden = true;
+
+  const prog = await fetchEpg(ch);
+  if (!prog || currentChannel?.id !== ch.id) return; /* stale — user switched channel */
+
+  updateEpgUI(prog);
+
+  /* Tick progress bar every 30s */
+  epgTimer = setInterval(() => {
+    if (currentChannel?.id !== ch.id) { clearInterval(epgTimer); return; }
+    updateEpgUI(prog);
+  }, 30000);
+}
+
 function bindHlsEvents() {
   hls.on(Hls.Events.MANIFEST_PARSED, () => {
     showBuf(false); showBadge(currentChannel); video.play().catch(() => {});
@@ -1123,28 +1247,30 @@ video.addEventListener('error',      () => { showBuf(false); if(currentChannel) 
 /* ============================================================
    NOW PLAYING BADGE — CSS animation auto-fades after 5s
    ============================================================ */
-function showBadge(ch) {
-  if (!ch) return;
-  nowName.textContent = ch.name;
-  nowLogo.innerHTML   = '';
-  if (ch.logo) {
-    const img=document.createElement('img');
-    img.src=ch.logo; img.alt=ch.name;
-    img.onerror=()=>{nowLogo.textContent=ch.name[0].toUpperCase();};
-    nowLogo.appendChild(img);
-  } else { nowLogo.textContent=ch.name[0].toUpperCase(); }
-
-  /* Restart animation */
-  nowBadge.classList.remove('visible');
-  void nowBadge.offsetWidth;
-  nowBadge.classList.add('visible');
-}
-function hideBadge(){ nowBadge.classList.remove('visible'); }
 
 /* ============================================================
    UI HELPERS
    ============================================================ */
 function showErr(msg){ errorMsg.textContent=msg; errorOvl.classList.add('show'); }
+
+/* ============================================================
+   NOW PLAYING BADGE — CSS animation auto-fades after 5s
+   ============================================================ */
+function showBadge(ch) {
+  if (!ch) return;
+  nowName.textContent = ch.name;
+  nowLogo.innerHTML   = '';
+  if (ch.logo) {
+    const img = document.createElement('img');
+    img.src = ch.logo; img.alt = ch.name;
+    img.onerror = () => { nowLogo.textContent = ch.name[0].toUpperCase(); };
+    nowLogo.appendChild(img);
+  } else { nowLogo.textContent = ch.name[0].toUpperCase(); }
+  nowBadge.classList.remove('visible');
+  void nowBadge.offsetWidth;
+  nowBadge.classList.add('visible');
+}
+function hideBadge() { nowBadge.classList.remove('visible'); }
 
 function updateInfoBar(ch){
   /* ── Desktop info bar ─────────────────────────────────── */
