@@ -636,13 +636,14 @@ input[type="search"]::-webkit-search-decoration { display: none; -webkit-appeara
   height: var(--mobile-nav-h); background: rgba(8,9,14,.97);
   backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   border-top: 1px solid var(--border); z-index: 200;
-  align-items: center; justify-content: space-around;
+  align-items: stretch;
 }
 .mob-tab {
-  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
   font-size: .58rem; font-weight: 600; letter-spacing: .04em;
-  color: var(--txt-3); padding: 6px 20px;
-  border-radius: var(--r-sm); cursor: pointer; transition: color .18s;
+  color: var(--txt-3); padding: 0;
+  border-radius: 0; cursor: pointer; transition: color .18s;
 }
 .mob-tab svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.8; }
 .mob-tab.active { color: var(--accent); }
@@ -884,6 +885,10 @@ input[type="search"]::-webkit-search-decoration { display: none; -webkit-appeara
   cursor: pointer; transition: all .18s; flex-shrink: 0;
 }
 .about-btn:hover { background: var(--bg-card); color: var(--txt-1); border-color: var(--border-active); }
+
+@media (max-width: 900px) {
+  .about-btn { display: none; }
+}
 
 /* ============================================================
    ABOUT MODAL
