@@ -1,1297 +1,1093 @@
 /* ============================================================
-   StreamBox — app.js
-   Source  : iptv-org  (channels.json + streams.json + countries.json)
-   Coverage: All countries worldwide, filtered client-side
+   StreamBox — style.css
    ============================================================ */
-'use strict';
 
-const EP = {
-  channels:  'https://iptv-org.github.io/api/channels.json',
-  streams:   'https://iptv-org.github.io/api/streams.json',
-  countries: 'https://iptv-org.github.io/api/countries.json',
-};
+/* ── Tokens ──────────────────────────────────────────────────── */
+:root {
+  --bg-base:     #08090e;
+  --bg-surface:  #0e1018;
+  --bg-elevated: #151821;
+  --bg-card:     #1a1f2e;
 
-/* ─── State ───────────────────────────────────────────────────── */
-let allChannels    = [];   // full merged list (all countries)
-let filteredChs    = [];   // current view after country + cat + search
-let countryMap     = {};   // code → { name, flag }
-let currentChannel = null;
-let currentCat     = 'all';
-let currentCountry = 'all';
-let hls            = null;
-let dashPlayer     = null;
-let retryTarget    = null;
-let isMuted        = true;
+  --border:        rgba(255,255,255,.07);
+  --border-active: rgba(99,179,237,.3);
 
-/* ─── Persistence ─────────────────────────────────────────────── */
-const LS_LAST    = 'sb_last_channel';
-const LS_FAVS    = 'sb_favourites';
-let   favourites = new Set(JSON.parse(localStorage.getItem(LS_FAVS) || '[]'));
+  --accent:      #3b82f6;
+  --accent-glow: rgba(59,130,246,.3);
+  --accent-soft: rgba(59,130,246,.11);
+  --red:         #ef4444;
 
-function saveFavs() {
-  try { localStorage.setItem(LS_FAVS, JSON.stringify([...favourites])); } catch(e){}
-}
-function saveLastChannel(id) {
-  try { localStorage.setItem(LS_LAST, id); } catch(e){}
-}
-function loadLastChannelId() {
-  try { return localStorage.getItem(LS_LAST); } catch(e){ return null; }
-}
-function toggleFav(id) {
-  if (favourites.has(id)) favourites.delete(id);
-  else favourites.add(id);
-  saveFavs();
-  /* Repaint any visible rows that show this channel */
-  document.querySelectorAll(`.channel-item[data-id="${id}"] .ch-fav-btn`).forEach(btn => {
-    syncFavBtn(btn, favourites.has(id));
-  });
-  /* If currently in favs tab, refilter */
-  if (currentCat === 'favs') applyFilters();
+  --txt-1: #eef2ff;
+  --txt-2: #7c88a0;
+  --txt-3: #3e4a5e;
+
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 18px;
+  --r-xl: 26px;
+
+  --sidebar-w:    310px;
+  --header-h:     58px;
+  --mobile-nav-h: 62px;
+
+  --ease:   cubic-bezier(.22,1,.36,1);
+  --font:   'Sora', sans-serif;
+  --mono:   'JetBrains Mono', monospace;
 }
 
-let isRestoring = false;  // set true just before restore switchTo, cleared inside
-const ITEM_H    = 54;   // px — must match min-height in CSS
-const OVERSCAN  = 8;    // extra rows above/below viewport
-let vsRenderedStart = 0;
-let vsRenderedEnd   = 0;
-let searchDebounce  = null;
+/* ── Reset ───────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font);
+  background: var(--bg-base);
+  color: var(--txt-1);
+  height: 100dvh;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+/* Prevent iOS zoom on input focus — font-size must be ≥16px */
+input, select, textarea { font-size: 16px !important; }
 
-/* ─── DOM ─────────────────────────────────────────────────────── */
-const $ = id => document.getElementById(id);
+img    { display: block; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; }
 
-const video         = $('video-el');
-const chList        = $('channel-list');
-const searchInput   = $('search-input');
-const sidebarSearchInput = $('sidebar-search-input');
-const catTabs       = $('cat-tabs');
-const chCount       = $('ch-count');
-const channelTotal  = $('channel-total');
-const idleScreen    = $('idle-screen');
-const bufferOvl     = $('buffer-overlay');
-const errorOvl      = $('error-overlay');
-const errorMsg      = $('error-msg');
-const nowBadge      = $('now-badge');
-const nowName       = $('now-name');
-const nowLogo       = $('now-logo');
-const infoThumb     = $('info-thumb');
-const infoName      = $('info-name');
-const infoSub       = $('info-sub');
-const sidebar       = $('sidebar');
-const sidebarBg     = $('sidebar-overlay');
-const toast         = $('toast');
-const countryDropdown = $('country-dropdown');
-const selectedFlag  = $('selected-flag');
-const selectedLabel = $('selected-label');
-const sugList       = $('suggestions-list');
-const sugLabel      = $('sug-label');
-const loadBar       = document.createElement('div');
+::-webkit-scrollbar       { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bg-card); border-radius: 99px; }
 
-/* ─── Insert load bar just below sidebar header ─────────────────── */
-loadBar.id = 'load-bar';
-$('channel-list').before(loadBar);
+/* ── Desktop sidebar collapse ────────────────────────────────── */
+#app {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-rows: var(--header-h) 1fr;
+  grid-template-areas: "header header" "sidebar main";
+  height: 100dvh;
+  overflow: hidden;
+  transition: grid-template-columns .3s var(--ease);
+}
 
-/* ============================================================
-   CATEGORY MAP
-   ============================================================ */
-const CAT_MAP = {
-  general:'general', news:'news', entertainment:'entertainment',
-  sports:'sports', kids:'kids', music:'entertainment', movies:'entertainment',
-  documentary:'entertainment', lifestyle:'entertainment', science:'entertainment',
-  travel:'entertainment', auto:'entertainment', cooking:'entertainment',
-  family:'kids', animation:'kids', religious:'general', legislative:'news',
-  business:'news', weather:'news', outdoor:'entertainment', shop:'general',
-  series:'entertainment', culture:'entertainment', comedy:'entertainment',
-  classic:'entertainment', adult:'entertainment',
-};
+#app.sidebar-hidden {
+  grid-template-columns: 0 1fr;
+}
 
-const TAB_ORDER = ['general','news','entertainment','sports','kids'];
-const TAB_LABEL = {
-  all:'All', favs:'Favourites', general:'General', news:'News',
-  entertainment:'Entertainment', sports:'Sports', kids:'Kids',
-};
-
-function mapCat(cats = []) {
-  for (const c of cats) {
-    const k = CAT_MAP[(c||'').toLowerCase().trim()];
-    if (k) return k;
-  }
-  return 'general';
+#app.sidebar-hidden #sidebar {
+  transform: translateX(-100%);
+  pointer-events: none;
 }
 
 /* ============================================================
-   M3U PARSER  (unused for global load, kept for future)
+   HEADER
    ============================================================ */
-function parseM3U(text) {
-  const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
-  const out=[], attr=(l,k)=>{const m=l.match(new RegExp(String.raw`${k}="([^"]*)"`,'i'));return m?m[1].trim():'';};
-  let meta=null;
-  for(const line of lines){
-    if(line.startsWith('#EXTINF')){
-      const c=line.lastIndexOf(',');
-      meta={id:attr(line,'tvg-id'),name:attr(line,'tvg-name')||(c>=0?line.slice(c+1).trim():''),logo:attr(line,'tvg-logo')||null,group:attr(line,'group-title')||''};
-    } else if(meta&&!line.startsWith('#')&&line.startsWith('http')){
-      if(!line.endsWith('.mpd'))out.push({id:meta.id||toSlug(meta.name),name:meta.name||'Unknown',logo:meta.logo,cat:mapCat([meta.group]),url:line,country:'',flag:''});
-      meta=null;
-    }
-  }
-  return out;
+#header {
+  grid-area: header;
+  display: flex; align-items: center; gap: 14px;
+  padding: 0 20px;
+  background: rgba(8,9,14,.9);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 100;
+  flex-shrink: 0;
 }
 
-function toSlug(s){return s.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');}
+/* Logo */
+.logo { display: flex; align-items: center; gap: 9px; flex-shrink: 0; }
+.logo-text {
+  font-size: 1rem; font-weight: 700; letter-spacing: -.02em;
+  background: linear-gradient(90deg, #fff 55%, var(--accent));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.logo-badge {
+  font-size: .58rem; font-weight: 600; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--accent);
+  background: var(--accent-soft); border: 1px solid var(--accent-glow);
+  padding: 2px 7px; border-radius: 99px;
+}
+
+/* Suppress browser native clear button on type=search */
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-decoration { display: none; -webkit-appearance: none; }
+
+/* Search clear button */
+.search-clear {
+  position: absolute; right: 10px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--txt-3); display: flex; align-items: center;
+  padding: 2px; border-radius: 4px;
+  transition: color .15s;
+}
+.search-clear[hidden] { display: none; }
+.search-clear:hover { color: var(--txt-1); }
+
+/* Search results dropdown */
+#search-results-dropdown {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: 0 12px 40px rgba(0,0,0,.55);
+  z-index: 500;
+  max-height: 420px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  animation: fadeUp .18s var(--ease) both;
+}
+#search-results-dropdown::-webkit-scrollbar { width: 3px; }
+#search-results-dropdown::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 99px; }
+
+.sr-header {
+  padding: 8px 14px 5px;
+  font-size: .58rem; font-weight: 600; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--txt-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.sr-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background .12s;
+  border-bottom: 1px solid rgba(255,255,255,.03);
+}
+.sr-item:last-child { border-bottom: none; }
+.sr-item:hover, .sr-item.active, .sr-item.focused { background: var(--bg-elevated); }
+.sr-item.active { background: var(--accent-soft); }
+
+.sr-logo {
+  width: 34px; height: 34px; border-radius: 6px;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  overflow: hidden; display: grid; place-items: center;
+  flex-shrink: 0;
+}
+.sr-logo img { width: 100%; height: 100%; object-fit: contain; padding: 4px; }
+.sr-letter { font-size: .85rem; font-weight: 700; color: var(--accent); }
+
+.sr-info { flex: 1; min-width: 0; }
+.sr-name {
+  font-size: .8rem; font-weight: 600; color: var(--txt-1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sr-meta {
+  font-size: .62rem; color: var(--txt-3); margin-top: 1px;
+  display: flex; align-items: center; gap: 4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sr-item.active .sr-name { color: var(--accent); }
+
+.sr-empty {
+  padding: 20px 14px;
+  text-align: center;
+  font-size: .78rem; color: var(--txt-3);
+}
+
+/* Header search input — add right padding for clear button */
+.header-search {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+.header-search-inner {
+  position: relative;
+  width: 100%; max-width: 480px;
+}
+.header-search input {
+  width: 100%;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 8px 36px 8px 38px;
+  font-family: var(--font); font-size: .84rem; color: var(--txt-1);
+  outline: none; transition: border-color .2s, box-shadow .2s;
+}
+.header-search input::placeholder { color: var(--txt-3); }
+.header-search input:focus {
+  border-color: var(--border-active);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.header-search .search-icon {
+  position: absolute; left: 11px; top: 50%;
+  transform: translateY(-50%); color: var(--txt-3);
+  pointer-events: none; display: flex;
+}
+
+/* Header right */
+.header-meta { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.channel-total { font-size: .7rem; font-family: var(--mono); color: var(--txt-3); white-space: nowrap; }
+.channel-total span { color: var(--accent); }
+
+.live-badge {
+  display: flex; align-items: center; gap: 6px;
+  font-size: .68rem; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--red);
+  background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.2);
+  padding: 4px 11px; border-radius: 99px;
+}
+.live-dot {
+  width: 6px; height: 6px; background: var(--red);
+  border-radius: 50%; animation: pulse 1.8s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,100% { opacity:1; transform:scale(1); }
+  50%      { opacity:.35; transform:scale(.65); }
+}
+
+#sidebar-toggle {
+  display: flex;
+  width: 36px; height: 36px;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--r-sm); align-items: center; justify-content: center;
+  color: var(--txt-2); transition: background .2s, color .2s;
+  flex-shrink: 0;
+}
+#sidebar-toggle:hover { background: var(--bg-card); color: var(--txt-1); }
 
 /* ============================================================
-   LOCAL PH CHANNELS — manually curated, injected after API load.
-   Only HLS (.m3u8) streams are included. DRM/.mpd streams are
-   excluded as they require a license server to play.
+   SIDEBAR
    ============================================================ */
-const PH_CHANNELS = [
-  { name:'GMA 7',              logo:'https://upload.wikimedia.org/wikipedia/en/thumb/9/93/GMA_Network_logo.svg/1200px-GMA_Network_logo.svg.png', cat:'entertainment', url:'https://gsattv.akamaized.net/live/media0/gma7/Fairplay/gma7.m3u8' },
-  { name:'Star Movies',        logo:'https://upload.wikimedia.org/wikipedia/en/thumb/4/4f/Star_Movies_logo.svg/1200px-Star_Movies_logo.svg.png', cat:'entertainment', url:'https://converse.nathcreqtives.com/channels/starmovies/playlist.m3u8?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJNb29uIiwiaWF0IjoxNzcyNTg1NDEyLCJleHAiOjE3NzM4ODE0MTIsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3Mzg4MTQxMn0.pWBHcolaeZXd-5DAkMobbJn5DbFoSTDEWYuQn0LC5U4' },
-  { name:'Star Movies Select', logo:'https://upload.wikimedia.org/wikipedia/en/thumb/4/4f/Star_Movies_logo.svg/1200px-Star_Movies_logo.svg.png', cat:'entertainment', url:'https://converse.nathcreqtives.com/channels/smselect/playlist.m3u8?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJNb29uIiwiaWF0IjoxNzcyNTg1NDEyLCJleHAiOjE3NzM4ODE0MTIsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3Mzg4MTQxMn0.pWBHcolaeZXd-5DAkMobbJn5DbFoSTDEWYuQn0LC5U4' },
-  { name:'Heart of Asia',      logo:null, cat:'entertainment', url:'https://hls.nathcreqtives.com/playlist.m3u8?id=1&token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJNb29uIiwiaWF0IjoxNzcyNTg1NDEyLCJleHAiOjE3NzM4ODE0MTIsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3Mzg4MTQxMn0.pWBHcolaeZXd-5DAkMobbJn5DbFoSTDEWYuQn0LC5U4' },
-  { name:'AniPlus HD',         logo:null, cat:'entertainment', url:'https://amg18481-amg18481c1-amgplt0352.playout.now3.amagi.tv/playlist/amg18481-amg18481c1-amgplt0352/playlist.m3u8' },
-  { name:'Anime x HiDive',     logo:null, cat:'entertainment', url:'https://amc-anime-x-hidive-1-us.tablo.wurl.tv/4300.m3u8' },
-  { name:'Bilyonaryo Channel', logo:null, cat:'news',          url:'https://amg19223-amg19223c11-amgplt0352.playout.now3.amagi.tv/playlist/amg19223-amg19223c11-amgplt0352/playlist.m3u8' },
-  { name:'BBC News',           logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/BBC_News_2019.svg/1200px-BBC_News_2019.svg.png', cat:'news', url:'https://vs-hls-push-ww-live.akamaized.net/x=4/i=urn:bbc:pips:service:bbc_news_channel_hd/t=3840/v=pv14/b=5070016/main.m3u8' },
-  { name:'Moonbug',            logo:null, cat:'kids',          url:'https://moonbug-rokuus.amagi.tv/playlist.m3u8' },
-  { name:'Cartoon Channel PH', logo:null, cat:'kids',          url:'https://live20.bozztv.com/giatv/giatv-cartoonchannelph/cartoonchannelph/chunks.m3u8' },
-  { name:'CBeebies',           logo:null, cat:'kids',          url:'https://cdn4.skygo.mn/live/disk1/Cbeebies/HLSv3-FTA/Cbeebies.m3u8' },
-  { name:'Pop',                logo:null, cat:'kids',          url:'https://amg01753-amg01753c6-samsung-au-6678.playouts.now.amagi.tv/playlist.m3u8' },
-  { name:'Arirang',            logo:null, cat:'general',       url:'https://amdlive-ch01-ctnd-com.akamaized.net/arirang_1ch/smil:arirang_1ch.smil/playlist.m3u8' },
-  { name:'New K-Pop',          logo:null, cat:'entertainment', url:'https://newidco-newkid-1-eu.xiaomi.wurl.tv/playlist.m3u8' },
-  { name:'Vevo Pop',           logo:null, cat:'entertainment', url:'https://amg00056-amg00056c6-rakuten-uk-3235.playouts.now.amagi.tv/playlist.m3u8' },
-  { name:'AMC+',               logo:null, cat:'entertainment', url:'https://bcovlive-a.akamaihd.net/ba853de442c140b7b3dc020001597c0a/us-east-1/6245817279001/playlist.m3u8' },
-  { name:'AMC Presents',       logo:null, cat:'entertainment', url:'https://amc-amcpresents-1-us.plex.wurl.tv/playlist.m3u8' },
-  { name:'MovieSphere',        logo:null, cat:'entertainment', url:'https://amg00353-lionsgatestudio-moviesphere-xumo-zh5u0.amagi.tv/playlist.m3u8' },
-  { name:'Outdoor',            logo:null, cat:'general',       url:'https://cdn-apse1-prod.tsv2.amagi.tv/linear/amg00718-outdoorchannela-outdoortvnz-samsungnz/playlist.m3u8' },
-  { name:'Abante Radyo',       logo:null, cat:'news',          url:'https://amg19223-amg19223c12-amgplt0352.playout.now3.amagi.tv/playlist/amg19223-amg19223c12-amgplt0352/playlist.m3u8' },
-  { name:'Mindanow Network TV',logo:null, cat:'general',       url:'https://streams.comclark.com/overlay/mindanow/playlist.m3u8' },
-  { name:'Wild Earth',         logo:null, cat:'entertainment', url:'https://wildearth-plex.amagi.tv/masterR1080p.m3u8' },
-  { name:'RT Documentary',     logo:null, cat:'entertainment', url:'https://rt-rtd.rttv.com/live/rtdoc/playlist_4500Kb.m3u8' },
-  { name:'Game Show Network',  logo:null, cat:'entertainment', url:'https://a-cdn.klowdtv.com/live2/gsn_720p/chunks.m3u8' },
-  { name:'DAZN Combat',        logo:null, cat:'sports',        url:'https://dazn-combat-rakuten.amagi.tv/hls/amagi_hls_data_rakutenAA-dazn-combat-rakuten/CDN/master.m3u8' },
-  { name:'DAZN Ringside',      logo:null, cat:'sports',        url:'https://aegis-cloudfront-1.tubi.video/bfad29e2-5bee-44f3-8256-127324e8b106/playlist.m3u8' },
-  { name:'UFC TV',             logo:null, cat:'sports',        url:'https://amg19223-amg19223c6-amgplt0351.playout.now3.amagi.tv/playlist/amg19223-amg19223c6-amgplt0351/playlist.m3u8' },
-  { name:'FIFA+',              logo:null, cat:'sports',        url:'https://ca333c39.wurl.com/v1/sysdata_s_p_a_fifa_6/ohlscdn_us/latest/main/hls/playlist.m3u8' },
-  { name:'Tennis+',            logo:null, cat:'sports',        url:'https://amg01935-amg01935c1-amgplt0352.playout.now3.amagi.tv/playlist/amg01935-amg01935c1-amgplt0352/playlist.m3u8' },
-  { name:'Billiard TV',        logo:null, cat:'sports',        url:'https://1621590671.rsc.cdn77.org/HLS/BILLIARDTV_SCTE.m3u8' },
-].map(ch => ({
-  id:      'ph-local-' + ch.name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''),
-  name:    ch.name,
-  logo:    ch.logo,
-  cat:     ch.cat,
-  url:     ch.url,
-  drm:     ch.drm || null,
-  status:  'online',
-  country: 'PH',
-  ctname:  'Philippines',
-  flag:    '\uD83C\uDDF5\uD83C\uDDED',
-}));
-function showSkeletons(n=16){
-  chList.innerHTML=Array.from({length:n},(_,i)=>`
-    <li class="skel-item" style="animation-delay:${i*18}ms">
-      <div class="skel-logo"></div>
-      <div class="skel-text">
-        <div class="skel-line wide"></div>
-        <div class="skel-line narrow"></div>
-      </div>
-    </li>`).join('');
+#sidebar {
+  grid-area: sidebar;
+  display: flex; flex-direction: column;
+  background: rgba(12,14,20,.85);
+  backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+  transition: transform .35s var(--ease);
+  min-height: 0;
+  will-change: transform;
 }
+
+.sidebar-section {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.sidebar-label {
+  font-size: .6rem; font-weight: 600; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--txt-3); margin-bottom: 8px;
+}
+
+/* Sidebar search — only shown inside drawer on mobile */
+#sidebar-search-section { display: none; }
+
+.sidebar-search-wrap {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 8px 12px;
+  color: var(--txt-3); transition: border-color .2s, box-shadow .2s;
+}
+.sidebar-search-wrap:focus-within {
+  border-color: var(--border-active);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+#sidebar-search-input {
+  flex: 1; background: none; border: none; outline: none;
+  font-family: var(--font); font-size: .84rem; color: var(--txt-1);
+}
+#sidebar-search-input::placeholder { color: var(--txt-3); }
+
+/* ── Custom country dropdown ─────────────────────────────────── */
+.custom-select {
+  position: relative;
+}
+.custom-select-trigger {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 7px 10px;
+  cursor: pointer; transition: border-color .2s, box-shadow .2s;
+  user-select: none;
+}
+.custom-select:focus .custom-select-trigger,
+.custom-select[aria-expanded="true"] .custom-select-trigger {
+  border-color: var(--border-active);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  outline: none;
+}
+.country-flag { font-size: 1rem; line-height: 1; flex-shrink: 0; width: 20px; text-align: center; }
+.custom-select-value {
+  flex: 1; font-family: var(--font); font-size: .8rem; color: var(--txt-1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.select-caret {
+  width: 14px; height: 14px; color: var(--txt-3);
+  flex-shrink: 0; pointer-events: none;
+  transition: transform .2s var(--ease);
+}
+.custom-select[aria-expanded="true"] .select-caret { transform: rotate(180deg); }
+
+/* Dropdown list */
+.custom-select-list {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--r-md); list-style: none;
+  max-height: 220px; overflow-y: auto; overflow-x: hidden;
+  z-index: 300;
+  box-shadow: 0 8px 32px rgba(0,0,0,.5);
+  display: none;
+  padding: 4px;
+}
+.custom-select-list::-webkit-scrollbar { width: 3px; }
+.custom-select-list::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 99px; }
+.custom-select[aria-expanded="true"] .custom-select-list { display: block; }
+
+.custom-select-option {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px; border-radius: var(--r-sm);
+  font-size: .8rem; color: var(--txt-2);
+  cursor: pointer; transition: background .12s, color .12s;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.custom-select-option:hover { background: var(--bg-elevated); color: var(--txt-1); }
+.custom-select-option.selected { background: var(--accent-soft); color: var(--accent); }
+.custom-select-option .opt-flag { font-size: .95rem; flex-shrink: 0; width: 20px; text-align: center; }
+.custom-select-option .opt-label { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+
+/* Category tabs */
+.cat-tabs { display: flex; gap: 5px; flex-wrap: wrap; }
+.cat-tab {
+  font-size: .68rem; font-weight: 500; color: var(--txt-2);
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 99px; padding: 4px 11px;
+  cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.cat-tab:hover,
+.cat-tab:focus-visible { border-color: var(--border-active); color: var(--txt-1); outline: none; }
+.cat-tab.active { background: var(--accent-soft); border-color: var(--border-active); color: var(--accent); }
+
+/* Channel count */
+.channel-count {
+  font-size: .66rem; font-family: var(--mono); color: var(--txt-3);
+  padding: 7px 14px 5px; flex-shrink: 0;
+}
+.channel-count span { color: var(--accent); }
+
+/* ── Favourite button ────────────────────────────────────────── */
+.ch-fav-btn {
+  width: 26px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 6px; flex-shrink: 0;
+  color: var(--txt-3);
+  opacity: 0;
+  transition: opacity .15s, color .15s, background .15s;
+}
+.ch-fav-btn svg { width: 13px; height: 13px; }
+.ch-fav-btn.is-fav { color: #f43f5e; opacity: 1; }
+.channel-item:hover .ch-fav-btn { opacity: 1; }
+.ch-fav-btn:hover { color: #f43f5e; background: rgba(244,63,94,.1); }
+
+/* Fav button inside search dropdown */
+.sr-fav-btn {
+  opacity: 1;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* Favs tab active style */
+.cat-tab[data-cat="favs"].active {
+  background: rgba(244,63,94,.12);
+  border-color: rgba(244,63,94,.35);
+  color: #f43f5e;
+}
+.cat-tab[data-cat="favs"] svg { fill: currentColor; }
+#channel-list {
+  flex: 1; overflow-y: auto;
+  padding: 4px 6px 12px;
+  display: flex; flex-direction: column; gap: 1px;
+  list-style: none;
+  min-height: 0;
+}
+
+.channel-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: var(--r-md);
+  cursor: pointer; border: 1px solid transparent;
+  transition: background .13s, border-color .13s;
+  position: relative; overflow: hidden;
+  height: 54px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+.channel-item::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, var(--accent-soft), transparent);
+  opacity: 0; transition: opacity .15s; pointer-events: none;
+}
+.channel-item:hover { background: var(--bg-elevated); }
+.channel-item:hover::before { opacity: 1; }
+.channel-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.channel-item.active { background: var(--accent-soft); border-color: var(--border-active); }
+.channel-item.active::before { opacity: 1; }
+
+.ch-logo-wrap {
+  width: 38px; height: 38px; border-radius: 7px;
+  background: var(--bg-card); overflow: hidden;
+  flex-shrink: 0; display: grid; place-items: center;
+  border: 1px solid var(--border);
+}
+.ch-logo-wrap img { width: 100%; height: 100%; object-fit: contain; padding: 4px; }
+.ch-logo-wrap .ch-letter { font-size: .9rem; font-weight: 700; color: var(--accent); }
+
+.ch-info { flex: 1; min-width: 0; }
+.ch-name {
+  font-size: .79rem; font-weight: 600; color: var(--txt-1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  line-height: 1.3;
+}
+.active .ch-name { color: var(--accent); }
+.ch-meta {
+  font-size: .63rem; color: var(--txt-3); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: flex; align-items: center; gap: 4px;
+}
+.ch-flag { font-size: .7rem; line-height: 1; }
+
+.ch-now-badge {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  background: var(--accent); box-shadow: 0 0 6px var(--accent-glow);
+  animation: pulse 1.8s ease-in-out infinite;
+  display: none;
+}
+.active .ch-now-badge { display: block; }
+
+/* ── Skeletons ───────────────────────────────────────────────── */
+.skel-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; min-height: 54px; }
+.skel-logo {
+  width: 38px; height: 38px; border-radius: 7px; flex-shrink: 0;
+  background: linear-gradient(90deg,var(--bg-card) 25%,var(--bg-elevated) 50%,var(--bg-card) 75%);
+  background-size: 200% 100%; animation: shimmer 1.4s infinite;
+}
+.skel-text { flex: 1; display: flex; flex-direction: column; gap: 7px; }
+.skel-line {
+  height: 9px; border-radius: 99px;
+  background: linear-gradient(90deg,var(--bg-card) 25%,var(--bg-elevated) 50%,var(--bg-card) 75%);
+  background-size: 200% 100%; animation: shimmer 1.4s infinite;
+}
+.skel-line.wide { width: 70%; }
+.skel-line.narrow { width: 40%; }
+@keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+
+/* ── Load bar ────────────────────────────────────────────────── */
+#load-bar {
+  height: 2px; background: var(--accent-soft);
+  position: relative; flex-shrink: 0; overflow: hidden;
+}
+#load-bar::after {
+  content: ''; position: absolute; top: 0; left: -60%;
+  width: 60%; height: 100%;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: loadSlide 1.2s ease-in-out infinite;
+}
+#load-bar.done { display: none; }
+@keyframes loadSlide { to { left: 100%; } }
 
 /* ============================================================
-   DATA LOADING
-   Fires channels.json, streams.json, and countries.json together.
-   No country filter — loads everything, filters client-side.
+   MAIN
    ============================================================ */
-async function loadAll() {
-  showSkeletons();
-  loadBar.classList.remove('done');
-  chCount.textContent = 'Fetching channels…';
-
-  const [chRes, stRes, ctRes] = await Promise.allSettled([
-    fetch(EP.channels),
-    fetch(EP.streams),
-    fetch(EP.countries),
-  ]);
-
-  /* ── Countries lookup ─────────────────────────────────────── */
-  if (ctRes.status==='fulfilled' && ctRes.value.ok) {
-    try {
-      const countries = await ctRes.value.json();
-      for (const c of countries) {
-        countryMap[c.code] = { name: c.name, flag: c.flag || flagEmoji(c.code) };
-      }
-    } catch(e){ console.warn('[StreamBox] countries.json parse error', e); }
-  }
-
-  /* ── Build stream map: channel-id → best URL ─────────────── */
-  const streamMap = {};
-  if (stRes.status==='fulfilled' && stRes.value.ok) {
-    try {
-      const streams = await stRes.value.json();
-      for (const s of streams) {
-        if (!s.channel || !s.url || s.url.endsWith('.mpd')) continue;
-        const prev = streamMap[s.channel];
-        const isOnline = s.status === 'online';
-        if (!prev || (isOnline && prev.status !== 'online')) {
-          streamMap[s.channel] = { url: s.url, status: s.status || '' };
-        }
-      }
-      console.info(`[StreamBox] ${Object.keys(streamMap).length} streams indexed`);
-    } catch(e){ console.warn('[StreamBox] streams.json error', e); }
-  }
-
-  /* ── Map channels ─────────────────────────────────────────── */
-  if (chRes.status==='fulfilled' && chRes.value.ok) {
-    try {
-      const channels = await chRes.value.json();
-      const mapped = [];
-      for (const ch of channels) {
-        if (ch.closed) continue;
-        const st = streamMap[ch.id];
-        if (!st) continue;
-
-        const code = (ch.country || '').toUpperCase();
-        const ctry = countryMap[code] || { name: code || 'Unknown', flag: flagEmoji(code) };
-
-        mapped.push({
-          id:      ch.id,
-          name:    ch.name,
-          logo:    ch.logo || null,
-          cat:     mapCat(ch.categories || []),
-          url:     st.url,
-          status:  st.status,
-          country: code,
-          ctname:  ctry.name,
-          flag:    ctry.flag,
-        });
-      }
-
-      allChannels = mapped.sort((a,b) => {
-        if (a.status==='online' && b.status!=='online') return -1;
-        if (b.status==='online' && a.status!=='online') return  1;
-        return a.name.localeCompare(b.name);
-      });
-
-      /* Inject manually curated PH channels (prepend so they appear
-         at the top when Philippines is selected) */
-      const existingIds = new Set(allChannels.map(c => c.id));
-      const freshPH = PH_CHANNELS.filter(c => !existingIds.has(c.id));
-      allChannels = [...freshPH, ...allChannels];
-
-      console.info(`[StreamBox] ${allChannels.length} channels loaded (${freshPH.length} local PH)`);
-    } catch(e){ console.warn('[StreamBox] channels.json error', e); }
-  }
-
-  if (!allChannels.length) {
-    chList.innerHTML=`<li style="padding:32px 14px;text-align:center;color:var(--txt-3);font-size:.8rem;line-height:1.9">Could not load channels.<br>Check your connection and refresh.</li>`;
-    chCount.textContent='No channels loaded';
-    showToast('⚠ Could not load channel list');
-    loadBar.classList.add('done');
-    return;
-  }
-
-  buildSearchIndex();
-  buildCountryDropdown();
-  syncCatTabs();
-  applyFilters();
-  renderSuggestions();
-  channelTotal.innerHTML = `<span>${allChannels.length.toLocaleString()}</span> channels`;
-  loadBar.classList.add('done');
-
-  /* Add Favourites tab to sidebar (always present) */
-  if (!$('cat-tab-favs')) {
-    const favTab = document.createElement('button');
-    favTab.className = 'cat-tab';
-    favTab.id = 'cat-tab-favs';
-    favTab.dataset.cat = 'favs';
-    favTab.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-.05em;margin-right:3px"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>Favs`;
-    $('cat-tabs').prepend(favTab);
-  }
-
-  /* Restore last channel — start muted so browser allows autoplay */
-  const lastId = loadLastChannelId();
-  if (lastId) {
-    const last = allChannels.find(c => c.id === lastId);
-    if (last) {
-      isRestoring = true;
-      setTimeout(() => switchTo(last), 300);
-    }
-  }
+#main {
+  grid-area: main;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-base);
+  min-height: 0;
+  /* Ensures bg covers even during grid column animation */
+  will-change: width;
 }
+
+/* ── Player ──────────────────────────────────────────────────── */
+#player-wrap {
+  position: relative; background: #000;
+  flex: 1; width: 100%; overflow: hidden; min-height: 0;
+}
+#video-el { width: 100%; height: 100%; display: block; object-fit: contain; background: #000; }
+.player-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 10; }
+
+/* Now Playing badge */
+.now-playing-badge {
+  position: absolute; top: 12px; left: 12px;
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(8,9,14,.78); border: 1px solid rgba(255,255,255,.1);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border-radius: var(--r-md); padding: 7px 13px 7px 8px;
+  max-width: 260px; opacity: 0; pointer-events: none;
+}
+.now-playing-badge.visible { animation: badgeLifecycle 5s var(--ease) forwards; }
+@keyframes badgeLifecycle {
+  0%   { opacity:0; transform:translateY(-6px); }
+  10%  { opacity:1; transform:translateY(0); }
+  72%  { opacity:1; transform:translateY(0); }
+  100% { opacity:0; transform:translateY(-6px); }
+}
+.now-logo {
+  width: 30px; height: 30px; border-radius: 6px;
+  background: var(--bg-card); overflow: hidden;
+  flex-shrink: 0; display: grid; place-items: center;
+  font-weight: 700; color: var(--accent); font-size: .85rem;
+}
+.now-logo img { width:100%; height:100%; object-fit:contain; padding:3px; }
+.now-info { min-width: 0; }
+.now-label   { font-size:.56rem; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--txt-3); }
+.now-ch-name { font-size:.8rem; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* Mute hint */
+.mute-hint {
+  position: absolute; bottom: 14px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 7px;
+  background: rgba(8,9,14,.82); border: 1px solid rgba(255,255,255,.12);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-radius: 99px; padding: 7px 16px 7px 12px;
+  font-size: .75rem; font-weight: 600; color: var(--txt-1);
+  cursor: pointer; pointer-events: all;
+  white-space: nowrap;
+  animation: mute-hint-in .3s var(--ease) both;
+}
+.mute-hint[hidden] { display: none; }
+.mute-hint:hover { background: rgba(30,35,50,.9); border-color: var(--border-active); }
+@keyframes mute-hint-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+  position:absolute; inset:0; display:none;
+  align-items:center; justify-content:center;
+  background:rgba(0,0,0,.5); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
+}
+.buffer-overlay.show { display:flex; }
+.spinner {
+  width:42px; height:42px;
+  border:3px solid rgba(255,255,255,.1); border-top-color:var(--accent);
+  border-radius:50%; animation:spin .8s linear infinite;
+}
+@keyframes spin { to{transform:rotate(360deg)} }
+
+/* Error */
+.error-overlay {
+  position:absolute; inset:0; display:none;
+  flex-direction:column; align-items:center; justify-content:center;
+  gap:12px; background:rgba(0,0,0,.9); text-align:center; padding:24px;
+}
+.error-overlay.show { display:flex; }
+.error-icon { font-size:2.2rem; }
+.error-msg  { font-size:.86rem; color:var(--txt-2); max-width:260px; line-height:1.6; white-space:pre-line; }
+.error-retry {
+  background:var(--accent); color:#fff; border-radius:var(--r-sm);
+  padding:8px 20px; font-size:.8rem; font-weight:600;
+  font-family:var(--font); cursor:pointer; border:none;
+  transition:opacity .2s; pointer-events:all;
+}
+.error-retry:hover { opacity:.8; }
+
+/* Idle */
+.idle-screen {
+  position:absolute; inset:0;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:14px; background:radial-gradient(ellipse at center,#13172a 0%,#08090e 70%);
+}
+.idle-screen.hidden { display:none; }
+.idle-icon {
+  width:68px; height:68px;
+  background:var(--accent-soft); border:1px solid var(--border-active);
+  border-radius:var(--r-xl); display:grid; place-items:center;
+  animation:float 3.5s ease-in-out infinite;
+}
+.idle-icon svg { width:30px; height:30px; color:var(--accent); }
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+.idle-title { font-size:1.05rem; font-weight:700; color:var(--txt-1); }
+.idle-sub   { font-size:.8rem; color:var(--txt-3); text-align:center; max-width:220px; line-height:1.5; }
+
+/* ── Info bar (desktop) ──────────────────────────────────────── */
+#info-bar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 18px; border-top: 1px solid var(--border);
+  min-height: 68px; flex-shrink: 0; background: var(--bg-base);
+}
+.info-thumb {
+  width: 44px; height: 44px; border-radius: var(--r-sm);
+  background: var(--bg-card); overflow: hidden; flex-shrink: 0;
+  display: grid; place-items: center; border: 1px solid var(--border);
+}
+.info-thumb img { width:100%; height:100%; object-fit:contain; padding:4px; }
+.info-thumb .no-logo { font-size:1.1rem; }
+.info-body { flex: 1; min-width: 0; }
+.info-ch-name {
+  font-size: .95rem; font-weight: 700; color: var(--txt-1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.info-ch-name.idle { color: var(--txt-3); font-weight: 400; font-size: .83rem; }
+.info-ch-sub { font-size: .72rem; color: var(--txt-3); margin-top: 2px; }
+.info-actions { display: flex; gap: 7px; margin-left: auto; flex-shrink: 0; }
+.info-btn {
+  width: 34px; height: 34px; background: var(--bg-elevated);
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  display: grid; place-items: center; color: var(--txt-2);
+  cursor: pointer; transition: all .18s;
+}
+.info-btn:hover,
+.info-btn:focus-visible { background: var(--bg-card); color: var(--txt-1); border-color: var(--border-active); outline: none; }
+.info-btn svg { width: 15px; height: 15px; }
+
+/* Suggestions panel — desktop hidden */
+#suggestions-panel { display: none; }
 
 /* ============================================================
-   COUNTRY DROPDOWN — custom, scrollable, no native <select>
+   MOBILE NAV
    ============================================================ */
-function buildCountryDropdown() {
-  const seen = new Map();
-  for (const ch of allChannels) {
-    if (!seen.has(ch.country)) seen.set(ch.country, { name: ch.ctname, flag: ch.flag, count: 0 });
-    seen.get(ch.country).count++;
-  }
-  const sorted = [...seen.entries()].sort((a,b) => a[1].name.localeCompare(b[1].name));
-
-  const list = $('country-list');
-  list.innerHTML = '';
-
-  /* "All Countries" option */
-  const allOpt = makeOption('all', '🌐', 'All Countries', null);
-  allOpt.classList.add('selected');
-  list.appendChild(allOpt);
-
-  for (const [code, info] of sorted) {
-    list.appendChild(makeOption(code, info.flag, `${info.name} (${info.count})`, null));
-  }
+#mobile-nav {
+  display: none; position: fixed; bottom: 0; left: 0; right: 0;
+  height: var(--mobile-nav-h); background: rgba(8,9,14,.97);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border); z-index: 200;
+  align-items: stretch;
 }
-
-function makeOption(value, flag, label) {
-  const li = document.createElement('li');
-  li.className = 'custom-select-option';
-  li.setAttribute('role', 'option');
-  li.dataset.value = value;
-  li.innerHTML = `<span class="opt-flag">${flag}</span><span class="opt-label">${esc(label)}</span>`;
-  li.addEventListener('click', e => { e.stopPropagation(); selectCountry(value, flag, label.split(' (')[0]); });
-  return li;
+.mob-tab {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  font-size: .58rem; font-weight: 600; letter-spacing: .04em;
+  color: var(--txt-3); padding: 0;
+  border-radius: 0; cursor: pointer; transition: color .18s;
 }
-
-function selectCountry(value, flag, name) {
-  currentCountry = value;
-
-  /* Update trigger display */
-  selectedFlag.textContent  = flag;
-  selectedLabel.textContent = value === 'all' ? 'All Countries' : name;
-
-  /* Mark selected option */
-  document.querySelectorAll('#country-list .custom-select-option').forEach(el => {
-    el.classList.toggle('selected', el.dataset.value === value);
-  });
-
-  closeDropdown();
-
-  /* Reset category */
-  currentCat = 'all';
-  document.querySelectorAll('.cat-tab').forEach(t => {
-    t.classList.toggle('active', t.dataset.cat === 'all');
-  });
-
-  syncCatTabs();
-  applyFilters();
-  renderSuggestions();
-}
-
-/* Toggle open/close */
-function openDropdown() {
-  countryDropdown.setAttribute('aria-expanded', 'true');
-}
-function closeDropdown() {
-  countryDropdown.setAttribute('aria-expanded', 'false');
-}
-
-countryDropdown.addEventListener('click', e => {
-  const isOpen = countryDropdown.getAttribute('aria-expanded') === 'true';
-  isOpen ? closeDropdown() : openDropdown();
-  e.stopPropagation();
-});
-
-countryDropdown.addEventListener('keydown', e => {
-  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDropdown(); }
-  if (e.key === 'Escape') closeDropdown();
-});
-
-/* Close when clicking outside */
-document.addEventListener('click', e => {
-  if (!countryDropdown.contains(e.target)) closeDropdown();
-});
+.mob-tab svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+.mob-tab.active { color: var(--accent); }
 
 /* ============================================================
-   CATEGORY TABS — dynamic, reflects active country's categories
+   TOAST
    ============================================================ */
-function syncCatTabs() {
-  /* Which channels are in scope for the current country? */
-  const scope  = currentCountry === 'all'
-    ? allChannels
-    : allChannels.filter(c => c.country === currentCountry);
-
-  const present = new Set(scope.map(c => c.cat));
-
-  /* Remove previously injected dynamic tabs */
-  document.querySelectorAll('.cat-tab[data-dyn]').forEach(t=>t.remove());
-
-  for (const cat of TAB_ORDER) {
-    if (!present.has(cat)) continue;
-    if (document.querySelector(`.cat-tab[data-cat="${cat}"]`)) continue;
-    const btn = document.createElement('button');
-    btn.className   = 'cat-tab';
-    btn.dataset.cat = cat;
-    btn.dataset.dyn = '1';
-    btn.textContent = TAB_LABEL[cat];
-    catTabs.appendChild(btn);
-  }
+#toast {
+  position: fixed; bottom: 20px; left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 9px 18px;
+  font-size: .8rem; color: var(--txt-1); z-index: 9999;
+  opacity: 0; transition: all .26s var(--ease);
+  white-space: nowrap; pointer-events: none;
+  box-shadow: 0 8px 32px rgba(0,0,0,.4);
 }
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 /* ============================================================
-   VIRTUAL SCROLL
-   Structure kept stable across scrolls:
-     [topSpacer] [visible rows…] [bottomSpacer]
-   Only the middle rows are swapped — spacers never move.
+   ANIMATIONS
    ============================================================ */
-let vsTopSpacer    = null;
-let vsBottomSpacer = null;
-let vsRafPending   = false;
-
-function renderList(channels) {
-  chList.removeEventListener('scroll', onListScroll);
-
-  if (!channels.length) {
-    const msg = currentCat === 'favs'
-      ? `<li style="padding:32px 14px;text-align:center;color:var(--txt-3);font-size:.8rem;line-height:1.9">No favourites yet.<br>Tap ♡ on any channel to save it here.</li>`
-      : `<li style="padding:32px 14px;text-align:center;color:var(--txt-3);font-size:.8rem;line-height:1.8">No channels found.<br>Try a different search, country, or category.</li>`;
-    chList.innerHTML = msg;
-    vsTopSpacer = vsBottomSpacer = null;
-    vsRenderedStart = vsRenderedEnd = 0;
-    return;
-  }
-
-  /* Build stable skeleton: top-spacer · bottom-spacer */
-  chList.innerHTML = '';
-  vsTopSpacer    = document.createElement('li');
-  vsBottomSpacer = document.createElement('li');
-  const sp = 'display:block;pointer-events:none;flex-shrink:0;';
-  vsTopSpacer.style.cssText    = sp;
-  vsBottomSpacer.style.cssText = sp;
-  chList.appendChild(vsTopSpacer);
-  chList.appendChild(vsBottomSpacer);
-
-  vsRenderedStart = vsRenderedEnd = 0;
-  chList.scrollTop = 0;
-
-  chList.addEventListener('scroll', onListScroll, { passive: true });
-  paintWindow(channels, 0);
-}
-
-function paintWindow(channels, scrollTop) {
-  if (!vsTopSpacer) return;
-
-  const viewH = chList.clientHeight || 600;
-  const total = channels.length;
-  const start = Math.max(0, Math.floor(scrollTop / ITEM_H) - OVERSCAN);
-  const end   = Math.min(total, Math.ceil((scrollTop + viewH) / ITEM_H) + OVERSCAN);
-
-  /* Skip repaint if window is identical */
-  if (start === vsRenderedStart && end === vsRenderedEnd) return;
-  vsRenderedStart = start;
-  vsRenderedEnd   = end;
-
-  /* Update spacer heights */
-  vsTopSpacer.style.height    = (start * ITEM_H) + 'px';
-  vsBottomSpacer.style.height = ((total - end) * ITEM_H) + 'px';
-
-  /* Build new rows off-DOM */
-  const frag = document.createDocumentFragment();
-  for (let i = start; i < end; i++) {
-    frag.appendChild(buildItem(channels[i], i));
-  }
-
-  /* Remove old rows (everything between the two spacers) */
-  while (vsTopSpacer.nextSibling && vsTopSpacer.nextSibling !== vsBottomSpacer) {
-    chList.removeChild(vsTopSpacer.nextSibling);
-  }
-
-  /* Insert new rows before bottom spacer */
-  chList.insertBefore(frag, vsBottomSpacer);
-}
-
-function onListScroll() {
-  if (vsRafPending) return;
-  vsRafPending = true;
-  requestAnimationFrame(() => {
-    vsRafPending = false;
-    paintWindow(filteredChs, chList.scrollTop);
-  });
-}
-
-function syncFavBtn(btn, isFav) {
-  btn.setAttribute('aria-label', isFav ? 'Remove from favourites' : 'Add to favourites');
-  btn.classList.toggle('is-fav', isFav);
-  btn.innerHTML = isFav
-    ? `<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`
-    : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`;
-}
-
-function buildItem(ch, i) {
-  const active = currentChannel?.id === ch.id;
-  const isFav  = favourites.has(ch.id);
-  const li = document.createElement('li');
-  li.className = `channel-item${active ? ' active' : ''}`;
-  li.setAttribute('role', 'option');
-  li.setAttribute('aria-selected', String(active));
-  li.dataset.id = ch.id;
-
-  /* Logo */
-  const wrap = document.createElement('div');
-  wrap.className = 'ch-logo-wrap';
-  wrap.appendChild(makeLogoEl(ch.logo, ch.name, 'ch-letter'));
-
-  /* Text */
-  const info = document.createElement('div');
-  info.className = 'ch-info';
-
-  const nameEl = document.createElement('div');
-  nameEl.className = 'ch-name';
-  nameEl.textContent = ch.name;
-
-  const meta = document.createElement('div');
-  meta.className = 'ch-meta';
-  meta.innerHTML = `<span class="ch-flag">${ch.flag || ''}</span>`;
-  meta.appendChild(document.createTextNode(`${ch.ctname || ch.country} · ${TAB_LABEL[ch.cat] || ch.cat}`));
-
-  info.append(nameEl, meta);
-
-  /* Now-playing dot */
-  const dot = document.createElement('div');
-  dot.className = 'ch-now-badge';
-
-  /* Favourite button */
-  const favBtn = document.createElement('button');
-  favBtn.className = 'ch-fav-btn';
-  syncFavBtn(favBtn, isFav);
-  favBtn.addEventListener('click', e => {
-    e.stopPropagation();
-    toggleFav(ch.id);
-  });
-  favBtn.addEventListener('touchend', e => {
-    e.stopPropagation();
-    if (e.cancelable) e.preventDefault();
-    toggleFav(ch.id);
-  }, { passive: false });
-
-  li.append(wrap, info, dot, favBtn);
-  li.addEventListener('click', () => switchTo(ch));
-  li.addEventListener('touchend', e => {
-    /* Prevent the delayed click event that causes the double-tap issue on mobile */
-    if (e.cancelable) e.preventDefault();
-    switchTo(ch);
-  }, { passive: false });
-  li.addEventListener('keydown', e  => { if (e.key === 'Enter') switchTo(ch); });
-  return li;
-}
-
-/* ============================================================
-   ELEMENT HELPERS
-   ============================================================ */
-/* Cache of logo URLs that have previously 404'd — skip img for these */
-const failedLogos = new Set();
-
-function makeLogoEl(src, name, fallbackClass) {
-  if (src && !failedLogos.has(src)) {
-    const img = document.createElement('img');
-    img.src    = src;
-    img.alt    = name;
-    img.width  = 38;
-    img.height = 38;
-    img.onerror = () => {
-      failedLogos.add(src);
-      img.replaceWith(makeLetterEl(name, fallbackClass));
-    };
-    return img;
-  }
-  return makeLetterEl(name, fallbackClass);
-}
-function makeLetterEl(name,cls){
-  const s=document.createElement('span');
-  s.className=cls; s.textContent=(name?.[0]??'?').toUpperCase();
-  return s;
-}
-function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-
-/* Convert ISO-3166-1 alpha-2 country code to flag emoji */
-function flagEmoji(code=''){
-  if(!code||code.length!==2) return '🏳';
-  return [...code.toUpperCase()].map(c=>String.fromCodePoint(c.codePointAt(0)+127397)).join('');
-}
-
-/* ============================================================
-   FILTERS — Country + Category + Search
-   Pre-lowercased fields cached on each channel object so
-   filter() never calls .toLowerCase() at query time.
-   ============================================================ */
-function buildSearchIndex() {
-  for (const ch of allChannels) {
-    ch._nameL  = ch.name.toLowerCase();
-    ch._ctnameL = (ch.ctname || ch.country).toLowerCase();
-  }
-}
-
-function applyFilters() {
-  const q = searchInput.value.trim().toLowerCase();
-
-  filteredChs = allChannels.filter(ch => {
-    if (currentCountry !== 'all' && ch.country !== currentCountry) return false;
-    if (currentCat === 'favs') return favourites.has(ch.id);
-    if (currentCat !== 'all' && ch.cat !== currentCat) return false;
-    if (q && !ch._nameL.includes(q) && !ch._ctnameL.includes(q))  return false;
-    return true;
-  });
-
-  renderList(filteredChs);
-
-  const label   = currentCat === 'all' ? 'channels' : `${TAB_LABEL[currentCat] || currentCat} channels`;
-  const ctLabel = currentCountry === 'all' ? 'Worldwide' : (countryMap[currentCountry]?.name || currentCountry);
-  chCount.innerHTML = `<span>${filteredChs.length.toLocaleString()}</span> ${label} · ${esc(ctLabel)}`;
-}
-
-/* ============================================================
-   SUGGESTIONS — O(n) reservoir sample, no full-array sort
-   ============================================================ */
-function reservoirSample(arr, k) {
-  /* Fisher-Yates partial shuffle — stops after k picks */
-  const result = [];
-  const pool   = arr.slice(); // shallow copy to avoid mutating source
-  const lim    = Math.min(k, pool.length);
-  for (let i = 0; i < lim; i++) {
-    const j = i + Math.floor(Math.random() * (pool.length - i));
-    [pool[i], pool[j]] = [pool[j], pool[i]];
-    result.push(pool[i]);
-  }
-  return result;
-}
-
-function renderSuggestions() {
-  if (!sugList) return;
-
-  const pool = allChannels.filter(c =>
-    (currentCountry === 'all' || c.country === currentCountry) &&
-    c.id !== currentChannel?.id
-  );
-
-  /* Prefer online channels; sample up to 12 total */
-  const online  = pool.filter(c => c.status === 'online');
-  const offline = pool.filter(c => c.status !== 'online');
-  const need    = 12;
-  const fromOnline  = reservoirSample(online,  Math.min(need, online.length));
-  const fromOffline = reservoirSample(offline, Math.max(0, need - fromOnline.length));
-  const picks   = [...fromOnline, ...fromOffline];
-
-  const flag   = currentCountry === 'all' ? '' : (countryMap[currentCountry]?.flag || '');
-  const ctName = currentCountry === 'all' ? 'Worldwide' : (countryMap[currentCountry]?.name || currentCountry);
-  sugLabel.textContent = currentCountry === 'all' ? 'Suggested Channels' : `${flag} ${ctName}`;
-
-  /* Build with a fragment — single DOM insertion */
-  const frag = document.createDocumentFragment();
-  picks.forEach(ch => {
-    const isOnline = ch.status === 'online';
-    const li = document.createElement('li');
-    li.className = 'sug-item';
-    li.setAttribute('role', 'option');
-    li.setAttribute('data-online', isOnline ? '1' : '0');
-
-    const logoWrap = document.createElement('div');
-    logoWrap.className = 'sug-logo';
-    logoWrap.appendChild(makeLogoEl(ch.logo, ch.name, 'sug-letter'));
-    const liveBadge = document.createElement('div');
-    liveBadge.className = 'sug-live-badge';
-    liveBadge.textContent = 'Live';
-    logoWrap.appendChild(liveBadge);
-
-    const body = document.createElement('div');
-    body.className = 'sug-body';
-    const nameEl = document.createElement('div');
-    nameEl.className = 'sug-name';
-    nameEl.textContent = ch.name;
-    const catEl = document.createElement('div');
-    catEl.className = 'sug-cat';
-    catEl.textContent = TAB_LABEL[ch.cat] || ch.cat;
-    body.append(nameEl, catEl);
-
-    const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    arrow.setAttribute('viewBox', '0 0 24 24');
-    arrow.setAttribute('fill', 'none');
-    arrow.setAttribute('stroke', 'currentColor');
-    arrow.setAttribute('stroke-width', '2.5');
-    arrow.setAttribute('stroke-linecap', 'round');
-    arrow.setAttribute('stroke-linejoin', 'round');
-    arrow.classList.add('sug-arrow');
-    arrow.innerHTML = '<polyline points="9 18 15 12 9 6"/>';
-
-    li.append(logoWrap, body, arrow);
-    li.addEventListener('click', () => switchTo(ch));
-    frag.appendChild(li);
-  });
-
-  sugList.innerHTML = '';
-  sugList.appendChild(frag);
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(6px); }
+  to   { opacity:1; transform:translateY(0); }
 }
 
 /* ============================================================
-   SEARCH DROPDOWN — AJAX-style results panel
+   RESPONSIVE — ≤900px  (tablet + mobile)
    ============================================================ */
-const searchDropdown = $('search-results-dropdown');
-const searchClear    = $('search-clear');
-const MAX_RESULTS    = 20;
-let   activeResultIdx = -1;
+@media (max-width: 900px) {
 
-function openSearchDropdown(results, q) {
-  if (!results.length) {
-    searchDropdown.innerHTML = `<div class="sr-empty">No channels found for "<strong>${esc(q)}</strong>"</div>`;
-  } else {
-    const frag = document.createDocumentFragment();
-    const header = document.createElement('div');
-    header.className = 'sr-header';
-    header.textContent = `${results.length > MAX_RESULTS ? MAX_RESULTS + '+' : results.length} result${results.length !== 1 ? 's' : ''} for "${q}"`;
-    frag.appendChild(header);
-
-    results.slice(0, MAX_RESULTS).forEach(ch => {
-      const item = document.createElement('div');
-      item.className = 'sr-item';
-      if (currentChannel?.id === ch.id) item.classList.add('active');
-      item.setAttribute('role', 'option');
-      item.dataset.id = ch.id;
-
-      const logo = document.createElement('div');
-      logo.className = 'sr-logo';
-      logo.appendChild(makeLogoEl(ch.logo, ch.name, 'sr-letter'));
-
-      const info = document.createElement('div');
-      info.className = 'sr-info';
-      const nameEl = document.createElement('div');
-      nameEl.className = 'sr-name';
-      nameEl.textContent = ch.name;
-      const meta = document.createElement('div');
-      meta.className = 'sr-meta';
-      meta.innerHTML = `<span>${ch.flag || ''}</span> ${esc(ch.ctname || ch.country)} · ${esc(TAB_LABEL[ch.cat] || ch.cat)}`;
-      info.append(nameEl, meta);
-
-      item.append(logo, info);
-
-      /* Fav button in search result */
-      const favBtn = document.createElement('button');
-      favBtn.className = 'ch-fav-btn sr-fav-btn';
-      syncFavBtn(favBtn, favourites.has(ch.id));
-      favBtn.addEventListener('mousedown', e => {
-        e.preventDefault();
-        e.stopPropagation();
-        toggleFav(ch.id);
-        syncFavBtn(favBtn, favourites.has(ch.id));
-      });
-      item.append(logo, info, favBtn);
-      item.addEventListener('mousedown', e => {
-        e.preventDefault(); // don't blur the input
-        switchTo(ch);
-        closeSearchDropdown();
-      });
-      frag.appendChild(item);
-    });
-
-    searchDropdown.innerHTML = '';
-    searchDropdown.appendChild(frag);
+  /* Kill the column transition at this breakpoint — prevents blank flash */
+  #app {
+    grid-template-columns: 1fr;
+    grid-template-rows: var(--header-h) 1fr;
+    grid-template-areas: "header" "main";
+    transition: none;
   }
 
-  activeResultIdx = -1;
-  searchDropdown.hidden = false;
-}
-
-function closeSearchDropdown() {
-  searchDropdown.hidden = true;
-  searchDropdown.innerHTML = '';
-  activeResultIdx = -1;
-}
-
-function navigateDropdown(dir) {
-  const items = searchDropdown.querySelectorAll('.sr-item');
-  if (!items.length) return;
-  items[activeResultIdx]?.classList.remove('focused');
-  activeResultIdx = Math.max(-1, Math.min(items.length - 1, activeResultIdx + dir));
-  if (activeResultIdx >= 0) {
-    items[activeResultIdx].classList.add('focused');
-    items[activeResultIdx].scrollIntoView({ block: 'nearest' });
-  }
-}
-
-/* ── Shared search handler — debounced ────────────────────────── */
-function handleSearch(val) {
-  searchInput.value        = val;
-  sidebarSearchInput.value = val;
-
-  /* Show/hide clear button */
-  if (searchClear) searchClear.hidden = !val.trim();
-
-  const q = val.trim().toLowerCase();
-
-  if (!q) {
-    closeSearchDropdown();
-    /* Reset sidebar to full list */
-    clearTimeout(searchDebounce);
-    applyFilters();
-    return;
+  /* sidebar-hidden has no effect on mobile — grid is already 1fr */
+  #app.sidebar-hidden {
+    grid-template-columns: 1fr;
   }
 
-  clearTimeout(searchDebounce);
-  searchDebounce = setTimeout(() => {
-    /* Search across ALL channels regardless of country/cat filter */
-    const results = allChannels.filter(ch =>
-      ch._nameL.includes(q) || ch._ctnameL.includes(q)
-    );
-    openSearchDropdown(results, val.trim());
-    /* Also update sidebar list */
-    applyFilters();
-  }, 120);
-}
+  /* Header */
+  #header         { gap: 10px; padding: 0 14px; }
+  .header-search  { display: none; }
+  .channel-total  { display: none; }
 
-searchInput.addEventListener('input',        () => handleSearch(searchInput.value));
-sidebarSearchInput.addEventListener('input', () => handleSearch(sidebarSearchInput.value));
-
-/* Clear button */
-searchClear?.addEventListener('click', () => {
-  searchInput.value = '';
-  sidebarSearchInput.value = '';
-  searchClear.hidden = true;
-  closeSearchDropdown();
-  applyFilters();
-  searchInput.focus();
-});
-
-/* Keyboard navigation in dropdown */
-searchInput.addEventListener('keydown', e => {
-  if (searchDropdown.hidden) return;
-  if (e.key === 'ArrowDown')  { e.preventDefault(); navigateDropdown(1); }
-  if (e.key === 'ArrowUp')    { e.preventDefault(); navigateDropdown(-1); }
-  if (e.key === 'Enter') {
-    const focused = searchDropdown.querySelector('.sr-item.focused');
-    if (focused) {
-      const ch = allChannels.find(c => c.id === focused.dataset.id);
-      if (ch) { switchTo(ch); closeSearchDropdown(); }
-    }
+  /* Sidebar drawer */
+  #sidebar {
+    position: fixed;
+    top: var(--header-h); left: 0; bottom: var(--mobile-nav-h);
+    width: min(var(--sidebar-w), 88vw);
+    z-index: 150;
+    transform: translateX(-100%);
+    box-shadow: 4px 0 40px rgba(0,0,0,.6);
   }
-  if (e.key === 'Escape') { closeSearchDropdown(); }
-});
+  #sidebar.open { transform: translateX(0); }
 
-/* Close dropdown on blur (with slight delay to allow mousedown on items) */
-searchInput.addEventListener('blur', () => setTimeout(closeSearchDropdown, 150));
+  /* Also undo any desktop sidebar-hidden transform on mobile */
+  #app.sidebar-hidden #sidebar { transform: translateX(-100%); pointer-events: none; }
+  #app.sidebar-hidden #sidebar.open { transform: translateX(0); pointer-events: auto; }
 
-/* Reopen if input regains focus and has a value */
-searchInput.addEventListener('focus', () => {
-  if (searchInput.value.trim()) handleSearch(searchInput.value);
-});
+  #sidebar-search-section { display: block; }
 
-catTabs.addEventListener('click', e => {
-  const tab = e.target.closest('.cat-tab');
-  if (!tab) return;
-  document.querySelectorAll('.cat-tab').forEach(t=>t.classList.remove('active'));
-  tab.classList.add('active');
-  currentCat = tab.dataset.cat;
-  applyFilters();
-});
+  /* Backdrop */
+  .sidebar-overlay {
+    display: none; position: fixed;
+    inset: 0; top: var(--header-h); bottom: var(--mobile-nav-h);
+    background: rgba(0,0,0,.6); z-index: 140;
+  }
+  .sidebar-overlay.show { display: block; }
 
-/* ============================================================
-   CORE — switchTo(ch)
-   ============================================================ */
-function switchTo(ch) {
-  if (!ch?.url) { showToast('⚠ No stream URL for this channel'); return; }
+  /* Bottom nav */
+  #mobile-nav { display: flex; }
 
-  currentChannel = ch;
-  retryTarget    = ch;
-  saveLastChannel(ch.id);
-
-  /* Mark active by data-id — works regardless of virtual scroll window */
-  document.querySelectorAll('.channel-item').forEach(el => {
-    const isActive = el.dataset.id === ch.id;
-    el.classList.toggle('active', isActive);
-    el.setAttribute('aria-selected', String(isActive));
-  });
-
-  /* Scroll the list so the selected row is visible */
-  const idx = filteredChs.findIndex(c => c.id === ch.id);
-  if (idx !== -1) {
-    const itemTop    = idx * ITEM_H;
-    const itemBottom = itemTop + ITEM_H;
-    const listTop    = chList.scrollTop;
-    const listBottom = listTop + chList.clientHeight;
-    if (itemTop < listTop) {
-      chList.scrollTop = itemTop - 8;
-    } else if (itemBottom > listBottom) {
-      chList.scrollTop = itemBottom - chList.clientHeight + 8;
-    }
+  /* Main — always fills the space between header and mobile nav */
+  #main {
+    height: calc(100dvh - var(--header-h));
+    min-height: 0;
+    padding-bottom: var(--mobile-nav-h);
   }
 
-  idleScreen.classList.add('hidden');
-  errorOvl.classList.remove('show');
-  hideBadge();
-  showBuf(true);
-  updateInfoBar(ch);
-  closeSidebar();
+  /* Player */
+  #player-wrap { flex: none; height: 42dvh; min-height: 180px; }
 
-  if (isRestoring) {
-    /* Page-load restore: muted so browser allows autoplay */
-    video.muted = true;
-    isMuted     = true;
-    isRestoring = false;
-  } else {
-    video.muted = false;
-    isMuted     = false;
-  }
-  syncMuteBtn();
+  /* Info bar hidden; suggestions panel shown */
+  #info-bar { display: none; }
 
-  const isDash = ch.url.includes('.mpd');
-  isDash ? playDash(ch) : playHls(ch);
-
-  showToast(`▶ ${ch.name}`);
-  renderSuggestions();
-}
-
-/* ── HLS playback ───────────────────────────────────────────────── */
-function playHls(ch) {
-  if (dashPlayer) { dashPlayer.reset(); dashPlayer = null; }
-
-  if (Hls.isSupported()) {
-    if (hls) {
-      hls.detachMedia(); hls.loadSource(ch.url); hls.attachMedia(video);
-    } else {
-      hls = new Hls({
-        enableWorker: true, lowLatencyMode: true,
-        backBufferLength: 60, maxBufferLength: 30, maxMaxBufferLength: 90,
-      });
-      hls.loadSource(ch.url); hls.attachMedia(video); bindHlsEvents();
-    }
-    video.play().catch(() => {});
-  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-    if (hls) { hls.destroy(); hls = null; }
-    video.src = ch.url; video.play().catch(() => {});
-  } else {
-    showErr('HLS is not supported in this browser.');
-  }
-}
-
-/* ── DASH + ClearKey DRM playback ──────────────────────────────── */
-function playDash(ch) {
-  /* Tear down any active HLS player */
-  if (hls) { hls.destroy(); hls = null; }
-
-  if (!window.dashjs) {
-    showErr('DASH playback is not supported in this browser.');
-    return;
+  #suggestions-panel {
+    display: flex; flex-direction: column;
+    flex: 1; min-height: 0;
+    border-top: 1px solid var(--border);
+    overflow: hidden;
+    background: var(--bg-base);
   }
 
-  /* Always create a fresh player to avoid stale protection state */
-  if (dashPlayer) { try { dashPlayer.destroy(); } catch(e){} }
-  dashPlayer = dashjs.MediaPlayer().create();
+  /* Toast lifts above mobile nav */
+  #toast { bottom: calc(var(--mobile-nav-h) + 10px); }
 
-  dashPlayer.updateSettings({
-    streaming: {
-      lowLatencyEnabled: true,
-      abr: { initialBitrate: { video: 2000 } },
-    },
-  });
-
-  /* Build ClearKey protection data.
-     Must be set BEFORE initialize().
-     dash.js clearkeys map: { "kid_base64url": "key_base64url" }
-     The KID bytes must also be represented as a hex string in the
-     'laURL' variant — we support both formats by providing clearkeys. */
-  if (ch.drm) {
-    const clearkeys = {};
-    for (const [hexKid, hexKey] of Object.entries(ch.drm)) {
-      clearkeys[hexToBase64url(hexKid)] = hexToBase64url(hexKey);
-    }
-    dashPlayer.setProtectionData({
-      'org.w3.clearkey': { clearkeys },
-    });
+  /* ── Now-playing strip + controls ──────────────────────── */
+  .sug-header-top {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--bg-surface);
   }
 
-  dashPlayer.initialize(video, ch.url, true);
+  .sug-now { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
 
-  dashPlayer.on(dashjs.MediaPlayer.events.ERROR, e => {
-    if (e?.error === 'capability' || e?.error === 'mediasource') return;
-    console.warn('[StreamBox] DASH error', e);
-    showBuf(false);
-    showErr('Stream error. Channel may be offline or geo-blocked.');
-  });
+  .sug-now-thumb {
+    width: 38px; height: 38px; border-radius: var(--r-sm);
+    background: var(--bg-card); border: 1px solid var(--border);
+    overflow: hidden; flex-shrink: 0;
+    display: grid; place-items: center;
+    font-size: .9rem; font-weight: 700; color: var(--accent);
+  }
+  .sug-now-thumb img { width: 100%; height: 100%; object-fit: contain; padding: 4px; }
 
-  dashPlayer.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, () => {
-    showBuf(false); showBadge(currentChannel);
-  });
-
-  dashPlayer.on(dashjs.MediaPlayer.events.PLAYBACK_WAITING, () => showBuf(true));
-  dashPlayer.on(dashjs.MediaPlayer.events.PLAYBACK_PLAYING, () => showBuf(false));
-}
-
-/* Convert hex string to base64url (for ClearKey) */
-function hexToBase64url(hex) {
-  const bytes = new Uint8Array(hex.match(/.{2}/g).map(b => parseInt(b, 16)));
-  return btoa(String.fromCharCode(...bytes))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-function bindHlsEvents() {
-  hls.on(Hls.Events.MANIFEST_PARSED, () => {
-    showBuf(false); showBadge(currentChannel); video.play().catch(() => {});
-  });
-  hls.on(Hls.Events.ERROR, (_,d) => {
-    if(!d.fatal) return;
-    showBuf(false);
-    if(d.type===Hls.ErrorTypes.NETWORK_ERROR)
-      showErr('Stream offline or geo-blocked.\nTry a different channel.');
-    else if(d.type===Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
-    else showErr('Playback error. Channel may be temporarily down.');
-  });
-}
-
-/* Clear spinner and reattach player when exiting fullscreen */
-function onFullscreenExit() {
-  showBuf(false);
-  if (!currentChannel) return;
-
-  if (currentChannel.url.includes('.mpd')) {
-    /* DASH — just resume */
-    video.play().catch(() => {});
-    return;
+  .sug-now-text { flex: 1; min-width: 0; }
+  .sug-now-name {
+    font-size: .8rem; font-weight: 600; color: var(--txt-1);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .sug-now-sub {
+    font-size: .63rem; color: var(--txt-3); margin-top: 1px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
-  /* HLS — iOS Safari destroys the media element binding on webkitEnterFullscreen exit.
-     The only reliable recovery is to fully destroy the hls instance and recreate it
-     from scratch, exactly like a fresh channel switch. */
-  if (hls) {
-    hls.destroy();
-    hls = null;
+  .sug-controls { display: flex; gap: 6px; flex-shrink: 0; }
+
+  .sug-btn {
+    width: 36px; height: 36px;
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: var(--r-sm); display: grid; place-items: center;
+    color: var(--txt-2); cursor: pointer; transition: all .18s;
+  }
+  .sug-btn:hover,
+  .sug-btn:active   { background: var(--bg-card); color: var(--txt-1); border-color: var(--border-active); }
+  .sug-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .sug-btn svg { width: 15px; height: 15px; }
+
+  /* ── Section label ─────────────────────────────────────── */
+  .sug-header-bottom {
+    display: flex; align-items: center;
+    padding: 8px 14px 6px; flex-shrink: 0;
+  }
+  .sug-label {
+    font-size: .6rem; font-weight: 600; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--txt-3);
   }
 
-  if (Hls.isSupported()) {
-    hls = new Hls({
-      enableWorker: true, lowLatencyMode: true,
-      backBufferLength: 60, maxBufferLength: 30, maxMaxBufferLength: 90,
-    });
-    hls.loadSource(currentChannel.url);
-    hls.attachMedia(video);
-    bindHlsEvents();
-    video.play().catch(() => {});
-  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-    /* Native HLS (Safari desktop) */
-    video.src = currentChannel.url;
-    video.play().catch(() => {});
+  /* ── Suggestion rows ───────────────────────────────────── */
+  #suggestions-list {
+    list-style: none;
+    display: flex; flex-direction: column; gap: 5px;
+    overflow-y: auto; overflow-x: hidden;
+    padding: 6px 10px 10px;
+    flex: 1; min-height: 0;
+    -webkit-overflow-scrolling: touch;
   }
-}
+  #suggestions-list::-webkit-scrollbar { width: 2px; }
+  #suggestions-list::-webkit-scrollbar-thumb { background: var(--bg-card); border-radius: 99px; }
 
-document.addEventListener('fullscreenchange',       () => { if (!document.fullscreenElement)       onFullscreenExit(); });
-document.addEventListener('webkitfullscreenchange', () => { if (!document.webkitFullscreenElement) onFullscreenExit(); });
-video.addEventListener('webkitendfullscreen',       () => onFullscreenExit());
-video.addEventListener('playing',    () => showBuf(false));
-video.addEventListener('canplay',    () => showBuf(false));
-video.addEventListener('timeupdate', () => showBuf(false));
-video.addEventListener('stalled',    () => showBuf(true));
-video.addEventListener('error',      () => { showBuf(false); if(currentChannel) showErr('Could not load stream.'); });
-
-/* ============================================================
-   NOW PLAYING BADGE — CSS animation auto-fades after 5s
-   ============================================================ */
-function showBadge(ch) {
-  if (!ch) return;
-  nowName.textContent = ch.name;
-  nowLogo.innerHTML   = '';
-  if (ch.logo) {
-    const img=document.createElement('img');
-    img.src=ch.logo; img.alt=ch.name;
-    img.onerror=()=>{nowLogo.textContent=ch.name[0].toUpperCase();};
-    nowLogo.appendChild(img);
-  } else { nowLogo.textContent=ch.name[0].toUpperCase(); }
-
-  /* Restart animation */
-  nowBadge.classList.remove('visible');
-  void nowBadge.offsetWidth;
-  nowBadge.classList.add('visible');
-}
-function hideBadge(){ nowBadge.classList.remove('visible'); }
-
-/* ============================================================
-   UI HELPERS
-   ============================================================ */
-function showErr(msg){ errorMsg.textContent=msg; errorOvl.classList.add('show'); }
-
-function updateInfoBar(ch){
-  /* ── Desktop info bar ─────────────────────────────────── */
-  infoThumb.innerHTML='';
-  if(ch.logo){
-    const img=document.createElement('img');
-    img.src=ch.logo; img.alt=ch.name;
-    img.onerror=()=>{infoThumb.innerHTML=`<span class="no-logo">${ch.name[0].toUpperCase()}</span>`;};
-    infoThumb.appendChild(img);
-  } else {
-    infoThumb.innerHTML=`<span class="no-logo">${ch.flag||ch.name[0].toUpperCase()}</span>`;
+  .sug-item {
+    display: flex; flex-direction: row; align-items: center; gap: 11px;
+    flex-shrink: 0; padding: 9px 11px;
+    border-radius: var(--r-md); border: 1px solid var(--border);
+    background: var(--bg-elevated);
+    cursor: pointer; transition: border-color .15s, background .15s;
+    position: relative; overflow: hidden;
   }
-  infoName.textContent=ch.name;
-  infoName.classList.remove('idle');
-  infoSub.textContent=`${ch.flag||''} ${ch.ctname||ch.country} · ${TAB_LABEL[ch.cat]||ch.cat} · Live`;
+  .sug-item:hover,
+  .sug-item:active { background: var(--bg-card); border-color: var(--border-active); }
 
-  /* ── Mobile now-playing strip ─────────────────────────── */
-  const mobThumb=$('mob-info-thumb');
-  const mobName=$('mob-info-name');
-  const mobSub=$('mob-info-sub');
-  if(mobThumb){
-    mobThumb.innerHTML='';
-    if(ch.logo){
-      const img=document.createElement('img');
-      img.src=ch.logo; img.alt=ch.name;
-      img.onerror=()=>{mobThumb.innerHTML=`<span>${ch.name[0].toUpperCase()}</span>`;};
-      mobThumb.appendChild(img);
-    } else {
-      mobThumb.innerHTML=`<span>${ch.flag||ch.name[0].toUpperCase()}</span>`;
-    }
+  .sug-logo {
+    width: 44px; height: 44px; border-radius: var(--r-sm);
+    background: var(--bg-card); border: 1px solid var(--border);
+    overflow: hidden; display: grid; place-items: center;
+    flex-shrink: 0; position: relative;
   }
-  if(mobName) mobName.textContent=ch.name;
-  if(mobSub)  mobSub.textContent=`${ch.flag||''} ${ch.ctname||ch.country} · Live`;
-}
+  .sug-logo img { width: 100%; height: 100%; object-fit: contain; padding: 5px; }
+  .sug-letter   { font-size: 1rem; font-weight: 700; color: var(--accent); }
 
-function syncMuteBtn(){
-  const MUTED   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>`;
-  const UNMUTED = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>`;
-  const label = isMuted ? 'Unmute' : 'Mute';
-  for(const id of ['mute-btn','mob-mute-btn']){
-    const btn=$(id); if(!btn) continue;
-    btn.title=label; btn.setAttribute('aria-label',label);
-    btn.innerHTML=isMuted ? MUTED : UNMUTED;
+  .sug-live-badge {
+    position: absolute; top: 3px; left: 3px;
+    font-size: .42rem; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; background: var(--red); color: #fff;
+    border-radius: 3px; padding: 1px 4px; line-height: 1.4; display: none;
   }
-  /* Show/hide the in-player mute hint */
-  const hint = $('mute-hint');
-  if (hint) hint.hidden = !(isMuted && currentChannel);
-}
+  .sug-item[data-online="1"] .sug-live-badge { display: block; }
 
-function showToast(msg, ms=2400){
-  toast.textContent=msg; toast.classList.add('show');
-  setTimeout(()=>toast.classList.remove('show'),ms);
+  .sug-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .sug-name {
+    font-size: .79rem; font-weight: 600; color: var(--txt-1);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3;
+  }
+  .sug-cat { font-size: .62rem; color: var(--txt-3); white-space: nowrap; }
+
+  .sug-arrow { width: 16px; height: 16px; color: var(--txt-3); flex-shrink: 0; opacity: .4; }
 }
 
 /* ============================================================
-   CONTROLS
+   RESPONSIVE — ≤480px  (small phones)
    ============================================================ */
-$('retry-btn').addEventListener('click',()=>{ if(!retryTarget) return; errorOvl.classList.remove('show'); switchTo(retryTarget); });
+@media (max-width: 480px) {
 
-/* Clicking the mute hint unmutes */
-$('mute-hint').addEventListener('click', () => {
-  isMuted = false; video.muted = false; syncMuteBtn();
-  showToast('🔊 Unmuted');
-});
+  #player-wrap { height: 36dvh; min-height: 160px; }
 
-function toggleMute(){
-  isMuted=!isMuted; video.muted=isMuted; syncMuteBtn();
-  showToast(isMuted?'🔇 Muted':'🔊 Unmuted');
+  .logo-text  { font-size: .9rem; }
+  .logo-badge { display: none; }
+
+  .idle-icon     { width: 54px; height: 54px; }
+  .idle-icon svg { width: 24px; height: 24px; }
+  .idle-title    { font-size: .9rem; }
+  .idle-sub      { font-size: .75rem; }
+
+  .sug-header-top { padding: 8px 12px; }
+  .sug-now-thumb  { width: 34px; height: 34px; }
+  .sug-now-name   { font-size: .76rem; }
+  .sug-btn        { width: 34px; height: 34px; }
+  #suggestions-list { padding: 5px 8px 8px; }
+  .sug-item       { padding: 8px 10px; }
+  .sug-logo       { width: 40px; height: 40px; }
+  .sug-name       { font-size: .74rem; }
 }
-/* ── Fullscreen — works on both desktop and mobile (iOS + Android) */
-function toggleFullscreen() {
-  const w = $('player-wrap');
-
-  if (document.fullscreenElement || document.webkitFullscreenElement) {
-    /* Exit fullscreen */
-    (document.exitFullscreen || document.webkitExitFullscreen ||
-     document.mozCancelFullScreen || document.msExitFullscreen
-    ).call(document);
-    return;
-  }
-
-  /* iOS Safari: must fullscreen the <video> element directly */
-  if (video.webkitEnterFullscreen) {
-    video.webkitEnterFullscreen();
-    return;
-  }
-
-  /* Android Chrome / desktop: fullscreen the player wrapper */
-  (w.requestFullscreen || w.webkitRequestFullscreen ||
-   w.mozRequestFullScreen || w.msRequestFullscreen
-  ).call(w);
-}
-
-/* ── Buffer overlay — with stall timeout so spinner doesn't stick */
-let stallTimer = null;
-
-function showBuf(v) {
-  clearTimeout(stallTimer);
-  if (v) {
-    /* Delay showing the spinner 600ms — avoids flash on quick quality switches */
-    stallTimer = setTimeout(() => bufferOvl.classList.add('show'), 600);
-  } else {
-    bufferOvl.classList.remove('show');
-  }
-}
-
-$('mute-btn').addEventListener('click', toggleMute);
-$('fullscreen-btn').addEventListener('click', toggleFullscreen);
-$('mob-mute-btn').addEventListener('click', toggleMute);
-$('mob-fullscreen-btn').addEventListener('click', toggleFullscreen);
 
 /* ============================================================
-   SIDEBAR TOGGLE — desktop collapses grid, mobile opens drawer
+   ABOUT BUTTON (header)
    ============================================================ */
-const app = $('app');
+.about-btn {
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--r-sm); color: var(--txt-2);
+  cursor: pointer; transition: all .18s; flex-shrink: 0;
+}
+.about-btn:hover { background: var(--bg-card); color: var(--txt-1); border-color: var(--border-active); }
 
-function isMobile() { return window.innerWidth <= 900; }
-
-function closeSidebar(){
-  sidebar.classList.remove('open'); sidebarBg.classList.remove('show');
-  $('mob-channels').classList.remove('active'); $('mob-watch').classList.add('active');
+@media (max-width: 900px) {
+  .about-btn { display: none; }
 }
 
-$('sidebar-toggle').addEventListener('click', () => {
-  if (isMobile()) {
-    const o = sidebar.classList.toggle('open');
-    sidebarBg.classList.toggle('show', o);
-  } else {
-    app.classList.toggle('sidebar-hidden');
+/* ============================================================
+   ABOUT MODAL
+   ============================================================ */
+#about-overlay {
+  display: none;
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,.7);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  align-items: center; justify-content: center;
+  padding: 20px;
+}
+#about-overlay.open { display: flex; }
+
+#about-modal {
+  position: relative;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  width: 100%; max-width: 480px;
+  max-height: 90dvh;
+  overflow-y: auto;
+  padding: 32px 28px 28px;
+  box-shadow: 0 24px 80px rgba(0,0,0,.6);
+  animation: modalIn .25s var(--ease) both;
+}
+@keyframes modalIn {
+  from { opacity:0; transform:translateY(16px) scale(.97); }
+  to   { opacity:1; transform:translateY(0) scale(1); }
+}
+#about-modal::-webkit-scrollbar { width: 3px; }
+#about-modal::-webkit-scrollbar-thumb { background: var(--bg-card); border-radius: 99px; }
+
+#about-close {
+  position: absolute; top: 16px; right: 16px;
+  width: 32px; height: 32px;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--r-sm); display: grid; place-items: center;
+  color: var(--txt-2); cursor: pointer; transition: all .18s;
+}
+#about-close:hover { background: var(--bg-card); color: var(--txt-1); border-color: var(--border-active); }
+
+/* Hero */
+.about-hero {
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center; gap: 8px; margin-bottom: 28px;
+}
+.about-title {
+  font-size: 1.5rem; font-weight: 700; letter-spacing: -.03em;
+  background: linear-gradient(90deg, #fff 50%, var(--accent));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.about-tagline { font-size: .82rem; color: var(--txt-3); line-height: 1.5; }
+
+/* Sections */
+.about-section { margin-bottom: 20px; }
+.about-section-title {
+  font-size: .6rem; font-weight: 600; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--txt-3); margin-bottom: 10px;
+}
+.about-text {
+  font-size: .82rem; color: var(--txt-2); line-height: 1.7; margin-bottom: 8px;
+}
+.about-text:last-child { margin-bottom: 0; }
+.about-text a { color: var(--accent); text-decoration: none; }
+.about-text a:hover { text-decoration: underline; }
+
+/* Developer card */
+.about-dev {
+  display: flex; align-items: center; gap: 14px;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 14px;
+}
+.about-dev-avatar {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: var(--bg-card); border: 1px solid var(--border);
+  display: grid; place-items: center; font-size: 1.4rem; flex-shrink: 0;
+}
+.about-dev-name { font-size: .88rem; font-weight: 600; color: var(--txt-1); margin-bottom: 4px; }
+.about-dev-bio  { font-size: .74rem; color: var(--txt-3); line-height: 1.5; margin-bottom: 6px; }
+.about-dev-link {
+  font-size: .72rem; font-weight: 600; color: var(--accent);
+  text-decoration: none; transition: opacity .15s;
+}
+.about-dev-link:hover { opacity: .75; }
+
+/* Donate button */
+.donate-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: #0070ba; color: #fff;
+  border-radius: var(--r-md); padding: 11px 20px;
+  font-family: var(--font); font-size: .84rem; font-weight: 600;
+  text-decoration: none; margin-top: 12px;
+  transition: opacity .2s, transform .15s;
+  border: none; cursor: pointer;
+}
+.donate-btn:hover { opacity: .88; transform: translateY(-1px); }
+.donate-btn:active { transform: translateY(0); }
+
+/* Divider */
+.about-divider {
+  height: 1px; background: var(--border); margin: 20px 0;
+}
+
+/* Meta row */
+.about-meta {
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px; flex-wrap: wrap;
+  font-size: .65rem; font-family: var(--mono); color: var(--txt-3);
+}
+.about-dot { opacity: .4; }
+
+/* Mobile: full-screen modal */
+@media (max-width: 480px) {
+  #about-overlay { padding: 0; align-items: flex-end; }
+  #about-modal {
+    max-width: 100%; border-radius: var(--r-xl) var(--r-xl) 0 0;
+    max-height: 88dvh;
+    padding: 24px 20px 32px;
   }
-});
-
-sidebarBg.addEventListener('click', closeSidebar);
-$('mob-watch').addEventListener('click', closeSidebar);
-$('mob-channels').addEventListener('click',()=>{
-  const o=sidebar.classList.toggle('open'); sidebarBg.classList.toggle('show',o);
-  $('mob-channels').classList.toggle('active',o); $('mob-watch').classList.toggle('active',!o);
-});
-$('mob-search').addEventListener('click',()=>{
-  sidebar.classList.add('open'); sidebarBg.classList.add('show');
-  $('mob-channels').classList.add('active'); $('mob-watch').classList.remove('active');
-  setTimeout(()=>sidebarSearchInput.focus(), 120);
-});
-
-/* ============================================================
-   HELP MODAL
-   ============================================================ */
-const helpOverlay = $('help-overlay');
-
-function openHelp()  { helpOverlay.classList.add('open');    document.body.style.overflow = 'hidden'; }
-function closeHelp() { helpOverlay.classList.remove('open'); document.body.style.overflow = ''; }
-
-$('help-btn').addEventListener('click',  openHelp);
-$('mob-help').addEventListener('click',  openHelp);
-$('help-close').addEventListener('click', closeHelp);
-helpOverlay.addEventListener('click', e => { if (e.target === helpOverlay) closeHelp(); });
-
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && helpOverlay.classList.contains('open')) closeHelp();
-});
-const aboutOverlay = $('about-overlay');
-
-function openAbout() {
-  aboutOverlay.classList.add('open');
-  $('about-channel-count').textContent = `${allChannels.length.toLocaleString()} channels available`;
-  document.body.style.overflow = 'hidden';
-}
-function closeAbout() {
-  aboutOverlay.classList.remove('open');
-  document.body.style.overflow = '';
 }
 
-$('about-btn').addEventListener('click', openAbout);
-$('mob-about').addEventListener('click', openAbout);
-$('about-close').addEventListener('click', closeAbout);
-aboutOverlay.addEventListener('click', e => { if (e.target === aboutOverlay) closeAbout(); });
-
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && aboutOverlay.classList.contains('open')) closeAbout();
-});
-document.addEventListener('keydown',e=>{
-  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
-  if(e.key==='m'){ isMuted=!isMuted; video.muted=isMuted; syncMuteBtn(); }
-  if(e.key==='f') $('fullscreen-btn').click();
-  if(e.key==='b' && !isMobile()) app.classList.toggle('sidebar-hidden');
-  if(e.key==='/'){ e.preventDefault(); searchInput.focus(); }
-});
-
 /* ============================================================
-   INIT
+   HELP MODAL — reuses about-modal structure
    ============================================================ */
-loadAll();
+#help-overlay {
+  display: none;
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,.7);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  align-items: center; justify-content: center;
+  padding: 20px;
+}
+#help-overlay.open { display: flex; }
+
+#help-modal {
+  position: relative;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  width: 100%; max-width: 480px;
+  max-height: 90dvh;
+  overflow-y: auto;
+  padding: 32px 28px 28px;
+  box-shadow: 0 24px 80px rgba(0,0,0,.6);
+  animation: modalIn .25s var(--ease) both;
+}
+#help-modal::-webkit-scrollbar { width: 3px; }
+#help-modal::-webkit-scrollbar-thumb { background: var(--bg-card); border-radius: 99px; }
+
+#help-close {
+  position: absolute; top: 16px; right: 16px;
+  width: 32px; height: 32px;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--r-sm); display: grid; place-items: center;
+  color: var(--txt-2); cursor: pointer; transition: all .18s;
+}
+#help-close:hover { background: var(--bg-card); color: var(--txt-1); border-color: var(--border-active); }
+
+/* Numbered steps */
+.help-steps { display: flex; flex-direction: column; gap: 14px; }
+.help-step {
+  display: flex; gap: 14px; align-items: flex-start;
+}
+.help-step-num {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent-soft); border: 1px solid var(--border-active);
+  color: var(--accent); font-size: .78rem; font-weight: 700;
+  display: grid; place-items: center; flex-shrink: 0;
+  margin-top: 1px;
+}
+.help-step-title {
+  font-size: .84rem; font-weight: 600; color: var(--txt-1); margin-bottom: 3px;
+}
+.help-step-desc {
+  font-size: .78rem; color: var(--txt-2); line-height: 1.6;
+}
+.help-step-desc strong { color: var(--txt-1); }
+.help-step-desc em { color: var(--accent); font-style: normal; }
+
+/* Controls / shortcuts table */
+.help-controls { display: flex; flex-direction: column; gap: 8px; }
+.help-ctrl {
+  display: flex; align-items: center; gap: 12px;
+  font-size: .8rem; color: var(--txt-2);
+}
+.help-ctrl-key {
+  min-width: 42px; padding: 3px 8px;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: 6px; font-family: var(--mono); font-size: .72rem;
+  color: var(--txt-1); text-align: center;
+  flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  #help-overlay { padding: 0; align-items: flex-end; }
+  #help-modal {
+    max-width: 100%; border-radius: var(--r-xl) var(--r-xl) 0 0;
+    max-height: 88dvh; padding: 24px 20px 32px;
+  }
+}
