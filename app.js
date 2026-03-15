@@ -23,7 +23,33 @@ let dashPlayer     = null;
 let retryTarget    = null;
 let isMuted        = true;
 
-/* ─── Virtual scroll state ────────────────────────────────────── */
+/* ─── Persistence ─────────────────────────────────────────────── */
+const LS_LAST    = 'sb_last_channel';
+const LS_FAVS    = 'sb_favourites';
+let   favourites = new Set(JSON.parse(localStorage.getItem(LS_FAVS) || '[]'));
+
+function saveFavs() {
+  try { localStorage.setItem(LS_FAVS, JSON.stringify([...favourites])); } catch(e){}
+}
+function saveLastChannel(id) {
+  try { localStorage.setItem(LS_LAST, id); } catch(e){}
+}
+function loadLastChannelId() {
+  try { return localStorage.getItem(LS_LAST); } catch(e){ return null; }
+}
+function toggleFav(id) {
+  if (favourites.has(id)) favourites.delete(id);
+  else favourites.add(id);
+  saveFavs();
+  /* Repaint any visible rows that show this channel */
+  document.querySelectorAll(`.channel-item[data-id="${id}"] .ch-fav-btn`).forEach(btn => {
+    syncFavBtn(btn, favourites.has(id));
+  });
+  /* If currently in favs tab, refilter */
+  if (currentCat === 'favs') applyFilters();
+}
+
+let isRestoring = false;  // set true just before restore switchTo, cleared inside
 const ITEM_H    = 54;   // px — must match min-height in CSS
 const OVERSCAN  = 8;    // extra rows above/below viewport
 let vsRenderedStart = 0;
@@ -80,7 +106,7 @@ const CAT_MAP = {
 
 const TAB_ORDER = ['general','news','entertainment','sports','kids'];
 const TAB_LABEL = {
-  all:'All', general:'General', news:'News',
+  all:'All', favs:'Favourites', general:'General', news:'News',
   entertainment:'Entertainment', sports:'Sports', kids:'Kids',
 };
 
@@ -272,6 +298,26 @@ async function loadAll() {
   renderSuggestions();
   channelTotal.innerHTML = `<span>${allChannels.length.toLocaleString()}</span> channels`;
   loadBar.classList.add('done');
+
+  /* Add Favourites tab to sidebar (always present) */
+  if (!$('cat-tab-favs')) {
+    const favTab = document.createElement('button');
+    favTab.className = 'cat-tab';
+    favTab.id = 'cat-tab-favs';
+    favTab.dataset.cat = 'favs';
+    favTab.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-.05em;margin-right:3px"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>Favs`;
+    $('cat-tabs').prepend(favTab);
+  }
+
+  /* Restore last channel — start muted so browser allows autoplay */
+  const lastId = loadLastChannelId();
+  if (lastId) {
+    const last = allChannels.find(c => c.id === lastId);
+    if (last) {
+      isRestoring = true;
+      setTimeout(() => switchTo(last), 300);
+    }
+  }
 }
 
 /* ============================================================
@@ -397,7 +443,10 @@ function renderList(channels) {
   chList.removeEventListener('scroll', onListScroll);
 
   if (!channels.length) {
-    chList.innerHTML = `<li style="padding:32px 14px;text-align:center;color:var(--txt-3);font-size:.8rem;line-height:1.8">No channels found.<br>Try a different search, country, or category.</li>`;
+    const msg = currentCat === 'favs'
+      ? `<li style="padding:32px 14px;text-align:center;color:var(--txt-3);font-size:.8rem;line-height:1.9">No favourites yet.<br>Tap ♡ on any channel to save it here.</li>`
+      : `<li style="padding:32px 14px;text-align:center;color:var(--txt-3);font-size:.8rem;line-height:1.8">No channels found.<br>Try a different search, country, or category.</li>`;
+    chList.innerHTML = msg;
     vsTopSpacer = vsBottomSpacer = null;
     vsRenderedStart = vsRenderedEnd = 0;
     return;
@@ -461,8 +510,17 @@ function onListScroll() {
   });
 }
 
+function syncFavBtn(btn, isFav) {
+  btn.setAttribute('aria-label', isFav ? 'Remove from favourites' : 'Add to favourites');
+  btn.classList.toggle('is-fav', isFav);
+  btn.innerHTML = isFav
+    ? `<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`
+    : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`;
+}
+
 function buildItem(ch, i) {
   const active = currentChannel?.id === ch.id;
+  const isFav  = favourites.has(ch.id);
   const li = document.createElement('li');
   li.className = `channel-item${active ? ' active' : ''}`;
   li.setAttribute('role', 'option');
@@ -474,7 +532,7 @@ function buildItem(ch, i) {
   wrap.className = 'ch-logo-wrap';
   wrap.appendChild(makeLogoEl(ch.logo, ch.name, 'ch-letter'));
 
-  /* Text — use textContent (no HTML parsing) */
+  /* Text */
   const info = document.createElement('div');
   info.className = 'ch-info';
 
@@ -489,10 +547,20 @@ function buildItem(ch, i) {
 
   info.append(nameEl, meta);
 
+  /* Now-playing dot */
   const dot = document.createElement('div');
   dot.className = 'ch-now-badge';
 
-  li.append(wrap, info, dot);
+  /* Favourite button */
+  const favBtn = document.createElement('button');
+  favBtn.className = 'ch-fav-btn';
+  syncFavBtn(favBtn, isFav);
+  favBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    toggleFav(ch.id);
+  });
+
+  li.append(wrap, info, dot, favBtn);
   li.addEventListener('click',   () => switchTo(ch));
   li.addEventListener('keydown', e  => { if (e.key === 'Enter') switchTo(ch); });
   return li;
@@ -549,7 +617,8 @@ function applyFilters() {
 
   filteredChs = allChannels.filter(ch => {
     if (currentCountry !== 'all' && ch.country !== currentCountry) return false;
-    if (currentCat     !== 'all' && ch.cat     !== currentCat)     return false;
+    if (currentCat === 'favs') return favourites.has(ch.id);
+    if (currentCat !== 'all' && ch.cat !== currentCat) return false;
     if (q && !ch._nameL.includes(q) && !ch._ctnameL.includes(q))  return false;
     return true;
   });
@@ -643,21 +712,156 @@ function renderSuggestions() {
   sugList.appendChild(frag);
 }
 
+/* ============================================================
+   SEARCH DROPDOWN — AJAX-style results panel
+   ============================================================ */
+const searchDropdown = $('search-results-dropdown');
+const searchClear    = $('search-clear');
+const MAX_RESULTS    = 20;
+let   activeResultIdx = -1;
+
+function openSearchDropdown(results, q) {
+  if (!results.length) {
+    searchDropdown.innerHTML = `<div class="sr-empty">No channels found for "<strong>${esc(q)}</strong>"</div>`;
+  } else {
+    const frag = document.createDocumentFragment();
+    const header = document.createElement('div');
+    header.className = 'sr-header';
+    header.textContent = `${results.length > MAX_RESULTS ? MAX_RESULTS + '+' : results.length} result${results.length !== 1 ? 's' : ''} for "${q}"`;
+    frag.appendChild(header);
+
+    results.slice(0, MAX_RESULTS).forEach(ch => {
+      const item = document.createElement('div');
+      item.className = 'sr-item';
+      if (currentChannel?.id === ch.id) item.classList.add('active');
+      item.setAttribute('role', 'option');
+      item.dataset.id = ch.id;
+
+      const logo = document.createElement('div');
+      logo.className = 'sr-logo';
+      logo.appendChild(makeLogoEl(ch.logo, ch.name, 'sr-letter'));
+
+      const info = document.createElement('div');
+      info.className = 'sr-info';
+      const nameEl = document.createElement('div');
+      nameEl.className = 'sr-name';
+      nameEl.textContent = ch.name;
+      const meta = document.createElement('div');
+      meta.className = 'sr-meta';
+      meta.innerHTML = `<span>${ch.flag || ''}</span> ${esc(ch.ctname || ch.country)} · ${esc(TAB_LABEL[ch.cat] || ch.cat)}`;
+      info.append(nameEl, meta);
+
+      item.append(logo, info);
+
+      /* Fav button in search result */
+      const favBtn = document.createElement('button');
+      favBtn.className = 'ch-fav-btn sr-fav-btn';
+      syncFavBtn(favBtn, favourites.has(ch.id));
+      favBtn.addEventListener('mousedown', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleFav(ch.id);
+        syncFavBtn(favBtn, favourites.has(ch.id));
+      });
+      item.append(logo, info, favBtn);
+      item.addEventListener('mousedown', e => {
+        e.preventDefault(); // don't blur the input
+        switchTo(ch);
+        closeSearchDropdown();
+      });
+      frag.appendChild(item);
+    });
+
+    searchDropdown.innerHTML = '';
+    searchDropdown.appendChild(frag);
+  }
+
+  activeResultIdx = -1;
+  searchDropdown.hidden = false;
+}
+
+function closeSearchDropdown() {
+  searchDropdown.hidden = true;
+  searchDropdown.innerHTML = '';
+  activeResultIdx = -1;
+}
+
+function navigateDropdown(dir) {
+  const items = searchDropdown.querySelectorAll('.sr-item');
+  if (!items.length) return;
+  items[activeResultIdx]?.classList.remove('focused');
+  activeResultIdx = Math.max(-1, Math.min(items.length - 1, activeResultIdx + dir));
+  if (activeResultIdx >= 0) {
+    items[activeResultIdx].classList.add('focused');
+    items[activeResultIdx].scrollIntoView({ block: 'nearest' });
+  }
+}
+
 /* ── Shared search handler — debounced ────────────────────────── */
 function handleSearch(val) {
   searchInput.value        = val;
   sidebarSearchInput.value = val;
 
-  if (val.trim() && currentCountry !== 'all') {
-    selectCountry('all', '🌐', 'All Countries');
+  /* Show/hide clear button */
+  if (searchClear) searchClear.hidden = !val.trim();
+
+  const q = val.trim().toLowerCase();
+
+  if (!q) {
+    closeSearchDropdown();
+    /* Reset sidebar to full list */
+    clearTimeout(searchDebounce);
+    applyFilters();
+    return;
   }
 
   clearTimeout(searchDebounce);
-  searchDebounce = setTimeout(applyFilters, 120);
+  searchDebounce = setTimeout(() => {
+    /* Search across ALL channels regardless of country/cat filter */
+    const results = allChannels.filter(ch =>
+      ch._nameL.includes(q) || ch._ctnameL.includes(q)
+    );
+    openSearchDropdown(results, val.trim());
+    /* Also update sidebar list */
+    applyFilters();
+  }, 120);
 }
 
 searchInput.addEventListener('input',        () => handleSearch(searchInput.value));
 sidebarSearchInput.addEventListener('input', () => handleSearch(sidebarSearchInput.value));
+
+/* Clear button */
+searchClear?.addEventListener('click', () => {
+  searchInput.value = '';
+  sidebarSearchInput.value = '';
+  searchClear.hidden = true;
+  closeSearchDropdown();
+  applyFilters();
+  searchInput.focus();
+});
+
+/* Keyboard navigation in dropdown */
+searchInput.addEventListener('keydown', e => {
+  if (searchDropdown.hidden) return;
+  if (e.key === 'ArrowDown')  { e.preventDefault(); navigateDropdown(1); }
+  if (e.key === 'ArrowUp')    { e.preventDefault(); navigateDropdown(-1); }
+  if (e.key === 'Enter') {
+    const focused = searchDropdown.querySelector('.sr-item.focused');
+    if (focused) {
+      const ch = allChannels.find(c => c.id === focused.dataset.id);
+      if (ch) { switchTo(ch); closeSearchDropdown(); }
+    }
+  }
+  if (e.key === 'Escape') { closeSearchDropdown(); }
+});
+
+/* Close dropdown on blur (with slight delay to allow mousedown on items) */
+searchInput.addEventListener('blur', () => setTimeout(closeSearchDropdown, 150));
+
+/* Reopen if input regains focus and has a value */
+searchInput.addEventListener('focus', () => {
+  if (searchInput.value.trim()) handleSearch(searchInput.value);
+});
 
 catTabs.addEventListener('click', e => {
   const tab = e.target.closest('.cat-tab');
@@ -676,6 +880,7 @@ function switchTo(ch) {
 
   currentChannel = ch;
   retryTarget    = ch;
+  saveLastChannel(ch.id);
 
   /* Mark active by data-id — works regardless of virtual scroll window */
   document.querySelectorAll('.channel-item').forEach(el => {
@@ -684,9 +889,7 @@ function switchTo(ch) {
     el.setAttribute('aria-selected', String(isActive));
   });
 
-  /* Scroll the list so the selected row is visible.
-     With virtual scroll we can't use scrollIntoView on the element
-     (it may not be in the DOM). Instead, jump by index offset. */
+  /* Scroll the list so the selected row is visible */
   const idx = filteredChs.findIndex(c => c.id === ch.id);
   if (idx !== -1) {
     const itemTop    = idx * ITEM_H;
@@ -707,8 +910,15 @@ function switchTo(ch) {
   updateInfoBar(ch);
   closeSidebar();
 
-  video.muted = false;
-  isMuted     = false;
+  if (isRestoring) {
+    /* Page-load restore: muted so browser allows autoplay */
+    video.muted = true;
+    isMuted     = true;
+    isRestoring = false;
+  } else {
+    video.muted = false;
+    isMuted     = false;
+  }
   syncMuteBtn();
 
   const isDash = ch.url.includes('.mpd');
@@ -720,7 +930,6 @@ function switchTo(ch) {
 
 /* ── HLS playback ───────────────────────────────────────────────── */
 function playHls(ch) {
-  /* Tear down any active DASH player */
   if (dashPlayer) { dashPlayer.reset(); dashPlayer = null; }
 
   if (Hls.isSupported()) {
@@ -803,7 +1012,7 @@ function hexToBase64url(hex) {
 }
 function bindHlsEvents() {
   hls.on(Hls.Events.MANIFEST_PARSED, () => {
-    showBuf(false); showBadge(currentChannel); video.play().catch(()=>{});
+    showBuf(false); showBadge(currentChannel); video.play().catch(() => {});
   });
   hls.on(Hls.Events.ERROR, (_,d) => {
     if(!d.fatal) return;
@@ -820,15 +1029,32 @@ function onFullscreenExit() {
   showBuf(false);
   if (!currentChannel) return;
 
+  if (currentChannel.url.includes('.mpd')) {
+    /* DASH — just resume */
+    video.play().catch(() => {});
+    return;
+  }
+
+  /* HLS — iOS Safari destroys the media element binding on webkitEnterFullscreen exit.
+     The only reliable recovery is to fully destroy the hls instance and recreate it
+     from scratch, exactly like a fresh channel switch. */
   if (hls) {
-    /* iOS Safari fully detaches the video element from hls.js when
-       exiting native fullscreen via webkitEnterFullscreen.
-       Re-attaching alone is not enough — we must reload the source. */
-    hls.detachMedia();
+    hls.destroy();
+    hls = null;
+  }
+
+  if (Hls.isSupported()) {
+    hls = new Hls({
+      enableWorker: true, lowLatencyMode: true,
+      backBufferLength: 60, maxBufferLength: 30, maxMaxBufferLength: 90,
+    });
     hls.loadSource(currentChannel.url);
     hls.attachMedia(video);
+    bindHlsEvents();
     video.play().catch(() => {});
-  } else if (dashPlayer) {
+  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    /* Native HLS (Safari desktop) */
+    video.src = currentChannel.url;
     video.play().catch(() => {});
   }
 }
@@ -911,6 +1137,9 @@ function syncMuteBtn(){
     btn.title=label; btn.setAttribute('aria-label',label);
     btn.innerHTML=isMuted ? MUTED : UNMUTED;
   }
+  /* Show/hide the in-player mute hint */
+  const hint = $('mute-hint');
+  if (hint) hint.hidden = !(isMuted && currentChannel);
 }
 
 function showToast(msg, ms=2400){
@@ -922,6 +1151,12 @@ function showToast(msg, ms=2400){
    CONTROLS
    ============================================================ */
 $('retry-btn').addEventListener('click',()=>{ if(!retryTarget) return; errorOvl.classList.remove('show'); switchTo(retryTarget); });
+
+/* Clicking the mute hint unmutes */
+$('mute-hint').addEventListener('click', () => {
+  isMuted = false; video.muted = false; syncMuteBtn();
+  showToast('🔊 Unmuted');
+});
 
 function toggleMute(){
   isMuted=!isMuted; video.muted=isMuted; syncMuteBtn();
