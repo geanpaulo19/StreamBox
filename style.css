@@ -552,21 +552,24 @@ input[type="search"]::-webkit-search-decoration { display: none; -webkit-appeara
 #resume-overlay {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(0,0,0,.72);
+  background: rgba(0,0,0,.55);
   backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
   z-index: 20;
 }
 #resume-btn {
-  display: flex; flex-direction: column; align-items: center; gap: 10px;
-  background: var(--accent); color: #fff;
-  border: none; border-radius: var(--r-lg);
-  padding: 20px 36px;
-  font-family: var(--font); font-size: .95rem; font-weight: 700;
-  cursor: pointer; transition: opacity .18s;
-  box-shadow: 0 0 40px var(--accent-glow);
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(8,9,14,.82); color: #fff;
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 99px;
+  padding: 10px 20px 10px 14px;
+  font-family: var(--font); font-size: .85rem; font-weight: 600;
+  cursor: pointer; transition: background .18s, border-color .18s;
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 20px rgba(0,0,0,.4);
 }
+#resume-btn svg { width: 16px; height: 16px; flex-shrink: 0; fill: var(--accent); }
 #resume-btn:hover,
-#resume-btn:active { opacity: .88; }
+#resume-btn:active { background: rgba(30,36,52,.9); border-color: var(--border-active); }
 
 /* Buffering */
 .buffer-overlay {
