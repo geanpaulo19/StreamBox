@@ -821,10 +821,21 @@ function bindHlsEvents() {
   });
 }
 
-/* Clear spinner when exiting fullscreen */
-document.addEventListener('fullscreenchange',       () => { if (!document.fullscreenElement)       showBuf(false); });
-document.addEventListener('webkitfullscreenchange', () => { if (!document.webkitFullscreenElement) showBuf(false); });
-video.addEventListener('webkitendfullscreen',       () => showBuf(false));
+/* Clear spinner and reattach player when exiting fullscreen */
+function onFullscreenExit() {
+  showBuf(false);
+  /* Reattach hls.js to the video element — iOS detaches it on webkitEnterFullscreen exit */
+  if (hls && currentChannel) {
+    hls.attachMedia(video);
+    video.play().catch(() => {});
+  } else if (dashPlayer && currentChannel) {
+    video.play().catch(() => {});
+  }
+}
+
+document.addEventListener('fullscreenchange',       () => { if (!document.fullscreenElement)       onFullscreenExit(); });
+document.addEventListener('webkitfullscreenchange', () => { if (!document.webkitFullscreenElement) onFullscreenExit(); });
+video.addEventListener('webkitendfullscreen',       () => onFullscreenExit());
 video.addEventListener('playing',    () => showBuf(false));
 video.addEventListener('canplay',    () => showBuf(false));
 video.addEventListener('timeupdate', () => showBuf(false));
