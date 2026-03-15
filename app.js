@@ -1480,8 +1480,10 @@ let deferredInstallPrompt = null;
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   deferredInstallPrompt = e;
-  /* Only show install nudge on mobile — desktop users can install via browser UI */
-  if (!isMobile()) return;
+  /* Only show on real mobile devices — not desktop browsers at narrow widths */
+  const isTouchDevice = ('ontouchstart' in window || navigator.maxTouchPoints > 1);
+  const isMobileUA    = /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent);
+  if (!isTouchDevice && !isMobileUA) return;
   setTimeout(() => {
     if (deferredInstallPrompt) showInstallBanner();
   }, 20000);
