@@ -19,6 +19,7 @@ let currentChannel = null;
 let currentCat     = 'all';
 let currentCountry = 'all';
 let hls            = null;
+let dashPlayer     = null;
 let retryTarget    = null;
 let isMuted        = true;
 
@@ -113,8 +114,56 @@ function parseM3U(text) {
 function toSlug(s){return s.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');}
 
 /* ============================================================
-   SKELETON LOADER
+   LOCAL PH CHANNELS — manually curated, injected after API load.
+   Only HLS (.m3u8) streams are included. DRM/.mpd streams are
+   excluded as they require a license server to play.
    ============================================================ */
+const PH_CHANNELS = [
+  { name:'GMA 7',              logo:'https://upload.wikimedia.org/wikipedia/en/thumb/9/93/GMA_Network_logo.svg/1200px-GMA_Network_logo.svg.png', cat:'entertainment', url:'https://gsattv.akamaized.net/live/media0/gma7/Fairplay/gma7.m3u8' },
+  { name:'ALLTV2',             logo:null, cat:'entertainment', url:'https://converse.nathcreqtives.com/1179/manifest.mpd?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJNb29uIiwiaWF0IjoxNzcyNTg1NDEyLCJleHAiOjE3NzM4ODE0MTIsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3Mzg4MTQxMn0.pWBHcolaeZXd-5DAkMobbJn5DbFoSTDEWYuQn0LC5U4', drm:{'31363233323238353336303333363036':'367662564c69425947353948374f4553'} },
+  { name:'Star Movies',        logo:'https://upload.wikimedia.org/wikipedia/en/thumb/4/4f/Star_Movies_logo.svg/1200px-Star_Movies_logo.svg.png', cat:'entertainment', url:'https://converse.nathcreqtives.com/channels/starmovies/playlist.m3u8?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJNb29uIiwiaWF0IjoxNzcyNTg1NDEyLCJleHAiOjE3NzM4ODE0MTIsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3Mzg4MTQxMn0.pWBHcolaeZXd-5DAkMobbJn5DbFoSTDEWYuQn0LC5U4' },
+  { name:'Star Movies Select', logo:'https://upload.wikimedia.org/wikipedia/en/thumb/4/4f/Star_Movies_logo.svg/1200px-Star_Movies_logo.svg.png', cat:'entertainment', url:'https://converse.nathcreqtives.com/channels/smselect/playlist.m3u8?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJNb29uIiwiaWF0IjoxNzcyNTg1NDEyLCJleHAiOjE3NzM4ODE0MTIsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3Mzg4MTQxMn0.pWBHcolaeZXd-5DAkMobbJn5DbFoSTDEWYuQn0LC5U4' },
+  { name:'GTV',                logo:null, cat:'entertainment', url:'https://converse.nathcreqtives.com/1143/manifest.mpd?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJNb29uIiwiaWF0IjoxNzcyNTg1NDEyLCJleHAiOjE3NzM4ODE0MTIsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3Mzg4MTQxMn0.pWBHcolaeZXd-5DAkMobbJn5DbFoSTDEWYuQn0LC5U4', drm:{'31363232353335323435353337353331':'35416a68643065697575493337566135'} },
+  { name:'Heart of Asia',      logo:null, cat:'entertainment', url:'https://hls.nathcreqtives.com/playlist.m3u8?id=1&token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJNb29uIiwiaWF0IjoxNzcyNTg1NDEyLCJleHAiOjE3NzM4ODE0MTIsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3Mzg4MTQxMn0.pWBHcolaeZXd-5DAkMobbJn5DbFoSTDEWYuQn0LC5U4' },
+  { name:'AniPlus HD',         logo:null, cat:'entertainment', url:'https://amg18481-amg18481c1-amgplt0352.playout.now3.amagi.tv/playlist/amg18481-amg18481c1-amgplt0352/playlist.m3u8' },
+  { name:'Animax',             logo:null, cat:'entertainment', url:'https://qp-pldt-live-bpk-01-prod.akamaized.net/bpk-tv/cg_animax_sd_new/default/index.mpd', drm:{'1e7b9d2c6a4f4d8c9f33b5c1a8d7e260':'67336c0c5b24fb4b8caac248dad3c55d'} },
+  { name:'Anime x HiDive',     logo:null, cat:'entertainment', url:'https://amc-anime-x-hidive-1-us.tablo.wurl.tv/4300.m3u8' },
+  { name:'Bilyonaryo Channel', logo:null, cat:'news',          url:'https://amg19223-amg19223c11-amgplt0352.playout.now3.amagi.tv/playlist/amg19223-amg19223c11-amgplt0352/playlist.m3u8' },
+  { name:'BBC News',           logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/BBC_News_2019.svg/1200px-BBC_News_2019.svg.png', cat:'news', url:'https://vs-hls-push-ww-live.akamaized.net/x=4/i=urn:bbc:pips:service:bbc_news_channel_hd/t=3840/v=pv14/b=5070016/main.m3u8' },
+  { name:'Moonbug',            logo:null, cat:'kids',          url:'https://moonbug-rokuus.amagi.tv/playlist.m3u8' },
+  { name:'Cartoon Channel PH', logo:null, cat:'kids',          url:'https://live20.bozztv.com/giatv/giatv-cartoonchannelph/cartoonchannelph/chunks.m3u8' },
+  { name:'CBeebies',           logo:null, cat:'kids',          url:'https://cdn4.skygo.mn/live/disk1/Cbeebies/HLSv3-FTA/Cbeebies.m3u8' },
+  { name:'Pop',                logo:null, cat:'kids',          url:'https://amg01753-amg01753c6-samsung-au-6678.playouts.now.amagi.tv/playlist.m3u8' },
+  { name:'Arirang',            logo:null, cat:'general',       url:'https://amdlive-ch01-ctnd-com.akamaized.net/arirang_1ch/smil:arirang_1ch.smil/playlist.m3u8' },
+  { name:'New K-Pop',          logo:null, cat:'entertainment', url:'https://newidco-newkid-1-eu.xiaomi.wurl.tv/playlist.m3u8' },
+  { name:'Vevo Pop',           logo:null, cat:'entertainment', url:'https://amg00056-amg00056c6-rakuten-uk-3235.playouts.now.amagi.tv/playlist.m3u8' },
+  { name:'AMC+',               logo:null, cat:'entertainment', url:'https://bcovlive-a.akamaihd.net/ba853de442c140b7b3dc020001597c0a/us-east-1/6245817279001/playlist.m3u8' },
+  { name:'AMC Presents',       logo:null, cat:'entertainment', url:'https://amc-amcpresents-1-us.plex.wurl.tv/playlist.m3u8' },
+  { name:'MovieSphere',        logo:null, cat:'entertainment', url:'https://amg00353-lionsgatestudio-moviesphere-xumo-zh5u0.amagi.tv/playlist.m3u8' },
+  { name:'Outdoor',            logo:null, cat:'general',       url:'https://cdn-apse1-prod.tsv2.amagi.tv/linear/amg00718-outdoorchannela-outdoortvnz-samsungnz/playlist.m3u8' },
+  { name:'Abante Radyo',       logo:null, cat:'news',          url:'https://amg19223-amg19223c12-amgplt0352.playout.now3.amagi.tv/playlist/amg19223-amg19223c12-amgplt0352/playlist.m3u8' },
+  { name:'Mindanow Network TV',logo:null, cat:'general',       url:'https://streams.comclark.com/overlay/mindanow/playlist.m3u8' },
+  { name:'Wild Earth',         logo:null, cat:'entertainment', url:'https://wildearth-plex.amagi.tv/masterR1080p.m3u8' },
+  { name:'RT Documentary',     logo:null, cat:'entertainment', url:'https://rt-rtd.rttv.com/live/rtdoc/playlist_4500Kb.m3u8' },
+  { name:'Game Show Network',  logo:null, cat:'entertainment', url:'https://a-cdn.klowdtv.com/live2/gsn_720p/chunks.m3u8' },
+  { name:'DAZN Combat',        logo:null, cat:'sports',        url:'https://dazn-combat-rakuten.amagi.tv/hls/amagi_hls_data_rakutenAA-dazn-combat-rakuten/CDN/master.m3u8' },
+  { name:'DAZN Ringside',      logo:null, cat:'sports',        url:'https://aegis-cloudfront-1.tubi.video/bfad29e2-5bee-44f3-8256-127324e8b106/playlist.m3u8' },
+  { name:'UFC TV',             logo:null, cat:'sports',        url:'https://amg19223-amg19223c6-amgplt0351.playout.now3.amagi.tv/playlist/amg19223-amg19223c6-amgplt0351/playlist.m3u8' },
+  { name:'FIFA+',              logo:null, cat:'sports',        url:'https://ca333c39.wurl.com/v1/sysdata_s_p_a_fifa_6/ohlscdn_us/latest/main/hls/playlist.m3u8' },
+  { name:'Tennis+',            logo:null, cat:'sports',        url:'https://amg01935-amg01935c1-amgplt0352.playout.now3.amagi.tv/playlist/amg01935-amg01935c1-amgplt0352/playlist.m3u8' },
+  { name:'Billiard TV',        logo:null, cat:'sports',        url:'https://1621590671.rsc.cdn77.org/HLS/BILLIARDTV_SCTE.m3u8' },
+].map(ch => ({
+  id:      'ph-local-' + ch.name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''),
+  name:    ch.name,
+  logo:    ch.logo,
+  cat:     ch.cat,
+  url:     ch.url,
+  drm:     ch.drm || null,
+  status:  'online',
+  country: 'PH',
+  ctname:  'Philippines',
+  flag:    '🇵🇭',
+}));
 function showSkeletons(n=16){
   chList.innerHTML=Array.from({length:n},(_,i)=>`
     <li class="skel-item" style="animation-delay:${i*18}ms">
@@ -201,7 +250,13 @@ async function loadAll() {
         return a.name.localeCompare(b.name);
       });
 
-      console.info(`[StreamBox] ${allChannels.length} channels loaded`);
+      /* Inject manually curated PH channels (prepend so they appear
+         at the top when Philippines is selected) */
+      const existingIds = new Set(allChannels.map(c => c.id));
+      const freshPH = PH_CHANNELS.filter(c => !existingIds.has(c.id));
+      allChannels = [...freshPH, ...allChannels];
+
+      console.info(`[StreamBox] ${allChannels.length} channels loaded (${freshPH.length} local PH)`);
     } catch(e){ console.warn('[StreamBox] channels.json error', e); }
   }
 
@@ -659,28 +714,99 @@ function switchTo(ch) {
   isMuted     = false;
   syncMuteBtn();
 
-  if (Hls.isSupported()) {
-    if (hls) {
-      hls.detachMedia(); hls.loadSource(ch.url); hls.attachMedia(video);
-    } else {
-      hls = new Hls({
-        enableWorker:true, lowLatencyMode:true,
-        backBufferLength:60, maxBufferLength:30, maxMaxBufferLength:90,
-      });
-      hls.loadSource(ch.url); hls.attachMedia(video); bindHlsEvents();
-    }
-    video.play().catch(()=>{});
-  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-    video.src=ch.url; video.play().catch(()=>{});
-  } else {
-    showErr('HLS is not supported in this browser.'); return;
-  }
+  const isDash = ch.url.includes('.mpd');
+  isDash ? playDash(ch) : playHls(ch);
 
   showToast(`▶ ${ch.name}`);
   renderSuggestions();
 }
 
-/* ── HLS.js events ──────────────────────────────────────────────── */
+/* ── HLS playback ───────────────────────────────────────────────── */
+function playHls(ch) {
+  /* Tear down any active DASH player */
+  if (dashPlayer) { dashPlayer.reset(); dashPlayer = null; }
+
+  if (Hls.isSupported()) {
+    if (hls) {
+      hls.detachMedia(); hls.loadSource(ch.url); hls.attachMedia(video);
+    } else {
+      hls = new Hls({
+        enableWorker: true, lowLatencyMode: true,
+        backBufferLength: 60, maxBufferLength: 30, maxMaxBufferLength: 90,
+      });
+      hls.loadSource(ch.url); hls.attachMedia(video); bindHlsEvents();
+    }
+    video.play().catch(() => {});
+  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    if (hls) { hls.destroy(); hls = null; }
+    video.src = ch.url; video.play().catch(() => {});
+  } else {
+    showErr('HLS is not supported in this browser.');
+  }
+}
+
+/* ── DASH + ClearKey DRM playback ──────────────────────────────── */
+function playDash(ch) {
+  /* Tear down any active HLS player */
+  if (hls) { hls.destroy(); hls = null; }
+
+  if (!window.dashjs) {
+    showErr('DASH playback is not supported in this browser.');
+    return;
+  }
+
+  if (dashPlayer) { dashPlayer.reset(); }
+  else { dashPlayer = dashjs.MediaPlayer().create(); }
+
+  /* Build ClearKey protection data from the hex key map:
+     { keyId (hex) : key (hex) } → dash.js ClearKey format */
+  let protectionData = null;
+  if (ch.drm) {
+    const keys = {};
+    for (const [hexKid, hexKey] of Object.entries(ch.drm)) {
+      /* dash.js expects base64url-encoded kid and key */
+      keys[hexToBase64url(hexKid)] = hexToBase64url(hexKey);
+    }
+    protectionData = {
+      'org.w3.clearkey': {
+        clearkeys: keys,
+      },
+    };
+  }
+
+  dashPlayer.updateSettings({
+    streaming: {
+      lowLatencyEnabled: true,
+      abr: { initialBitrate: { video: 2000 } },
+    },
+  });
+
+  dashPlayer.initialize(video, ch.url, true);
+
+  if (protectionData) {
+    dashPlayer.setProtectionData(protectionData);
+  }
+
+  dashPlayer.on(dashjs.MediaPlayer.events.ERROR, e => {
+    console.warn('[StreamBox] DASH error', e);
+    showBuf(false);
+    showErr('Stream error. Channel may be offline or geo-blocked.');
+  });
+
+  dashPlayer.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, () => {
+    showBuf(false); showBadge(currentChannel);
+  });
+
+  dashPlayer.on(dashjs.MediaPlayer.events.PLAYBACK_WAITING, () => showBuf(true));
+  dashPlayer.on(dashjs.MediaPlayer.events.PLAYBACK_PLAYING, () => showBuf(false));
+}
+
+/* Convert hex string to base64url (for ClearKey) */
+function hexToBase64url(hex) {
+  const bytes = new Uint8Array(hex.match(/.{2}/g).map(b => parseInt(b, 16)));
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
 function bindHlsEvents() {
   hls.on(Hls.Events.MANIFEST_PARSED, () => {
     showBuf(false); showBadge(currentChannel); video.play().catch(()=>{});
@@ -695,11 +821,12 @@ function bindHlsEvents() {
   });
 }
 
-video.addEventListener('waiting', ()=>showBuf(true));
-video.addEventListener('playing', ()=>showBuf(false));
-video.addEventListener('canplay', ()=>showBuf(false));
-video.addEventListener('stalled', ()=>showBuf(true));
-video.addEventListener('error',   ()=>{ showBuf(false); if(currentChannel) showErr('Could not load stream.'); });
+video.addEventListener('waiting',    () => showBuf(true));
+video.addEventListener('playing',    () => showBuf(false));
+video.addEventListener('canplay',    () => showBuf(false));
+video.addEventListener('timeupdate', () => showBuf(false));
+video.addEventListener('stalled',    () => showBuf(true));
+video.addEventListener('error',      () => { showBuf(false); if(currentChannel) showErr('Could not load stream.'); });
 
 /* ============================================================
    NOW PLAYING BADGE — CSS animation auto-fades after 5s
@@ -725,7 +852,6 @@ function hideBadge(){ nowBadge.classList.remove('visible'); }
 /* ============================================================
    UI HELPERS
    ============================================================ */
-function showBuf(v){ bufferOvl.classList.toggle('show',v); }
 function showErr(msg){ errorMsg.textContent=msg; errorOvl.classList.add('show'); }
 
 function updateInfoBar(ch){
@@ -787,11 +913,41 @@ function toggleMute(){
   isMuted=!isMuted; video.muted=isMuted; syncMuteBtn();
   showToast(isMuted?'🔇 Muted':'🔊 Unmuted');
 }
-function toggleFullscreen(){
-  const w=$('player-wrap');
-  document.fullscreenElement
-    ?(document.exitFullscreen||document.webkitExitFullscreen).call(document)
-    :(w.requestFullscreen||w.webkitRequestFullscreen).call(w);
+/* ── Fullscreen — works on both desktop and mobile (iOS + Android) */
+function toggleFullscreen() {
+  const w = $('player-wrap');
+
+  if (document.fullscreenElement || document.webkitFullscreenElement) {
+    /* Exit fullscreen */
+    (document.exitFullscreen || document.webkitExitFullscreen ||
+     document.mozCancelFullScreen || document.msExitFullscreen
+    ).call(document);
+    return;
+  }
+
+  /* iOS Safari: must fullscreen the <video> element directly */
+  if (video.webkitEnterFullscreen) {
+    video.webkitEnterFullscreen();
+    return;
+  }
+
+  /* Android Chrome / desktop: fullscreen the player wrapper */
+  (w.requestFullscreen || w.webkitRequestFullscreen ||
+   w.mozRequestFullScreen || w.msRequestFullscreen
+  ).call(w);
+}
+
+/* ── Buffer overlay — with stall timeout so spinner doesn't stick */
+let stallTimer = null;
+
+function showBuf(v) {
+  clearTimeout(stallTimer);
+  if (v) {
+    /* Delay showing the spinner 600ms — avoids flash on quick quality switches */
+    stallTimer = setTimeout(() => bufferOvl.classList.add('show'), 600);
+  } else {
+    bufferOvl.classList.remove('show');
+  }
 }
 
 $('mute-btn').addEventListener('click', toggleMute);
