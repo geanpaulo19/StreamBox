@@ -120,13 +120,10 @@ function toSlug(s){return s.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-
    ============================================================ */
 const PH_CHANNELS = [
   { name:'GMA 7',              logo:'https://upload.wikimedia.org/wikipedia/en/thumb/9/93/GMA_Network_logo.svg/1200px-GMA_Network_logo.svg.png', cat:'entertainment', url:'https://gsattv.akamaized.net/live/media0/gma7/Fairplay/gma7.m3u8' },
-  { name:'ALLTV2',             logo:null, cat:'entertainment', url:'https://converse.nathcreqtives.com/1179/manifest.mpd?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJNb29uIiwiaWF0IjoxNzcyNTg1NDEyLCJleHAiOjE3NzM4ODE0MTIsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3Mzg4MTQxMn0.pWBHcolaeZXd-5DAkMobbJn5DbFoSTDEWYuQn0LC5U4', drm:{'31363233323238353336303333363036':'367662564c69425947353948374f4553'} },
   { name:'Star Movies',        logo:'https://upload.wikimedia.org/wikipedia/en/thumb/4/4f/Star_Movies_logo.svg/1200px-Star_Movies_logo.svg.png', cat:'entertainment', url:'https://converse.nathcreqtives.com/channels/starmovies/playlist.m3u8?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJNb29uIiwiaWF0IjoxNzcyNTg1NDEyLCJleHAiOjE3NzM4ODE0MTIsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3Mzg4MTQxMn0.pWBHcolaeZXd-5DAkMobbJn5DbFoSTDEWYuQn0LC5U4' },
   { name:'Star Movies Select', logo:'https://upload.wikimedia.org/wikipedia/en/thumb/4/4f/Star_Movies_logo.svg/1200px-Star_Movies_logo.svg.png', cat:'entertainment', url:'https://converse.nathcreqtives.com/channels/smselect/playlist.m3u8?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJNb29uIiwiaWF0IjoxNzcyNTg1NDEyLCJleHAiOjE3NzM4ODE0MTIsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3Mzg4MTQxMn0.pWBHcolaeZXd-5DAkMobbJn5DbFoSTDEWYuQn0LC5U4' },
-  { name:'GTV',                logo:null, cat:'entertainment', url:'https://converse.nathcreqtives.com/1143/manifest.mpd?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJNb29uIiwiaWF0IjoxNzcyNTg1NDEyLCJleHAiOjE3NzM4ODE0MTIsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3Mzg4MTQxMn0.pWBHcolaeZXd-5DAkMobbJn5DbFoSTDEWYuQn0LC5U4', drm:{'31363232353335323435353337353331':'35416a68643065697575493337566135'} },
   { name:'Heart of Asia',      logo:null, cat:'entertainment', url:'https://hls.nathcreqtives.com/playlist.m3u8?id=1&token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJNb29uIiwiaWF0IjoxNzcyNTg1NDEyLCJleHAiOjE3NzM4ODE0MTIsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3Mzg4MTQxMn0.pWBHcolaeZXd-5DAkMobbJn5DbFoSTDEWYuQn0LC5U4' },
   { name:'AniPlus HD',         logo:null, cat:'entertainment', url:'https://amg18481-amg18481c1-amgplt0352.playout.now3.amagi.tv/playlist/amg18481-amg18481c1-amgplt0352/playlist.m3u8' },
-  { name:'Animax',             logo:null, cat:'entertainment', url:'https://qp-pldt-live-bpk-01-prod.akamaized.net/bpk-tv/cg_animax_sd_new/default/index.mpd', drm:{'1e7b9d2c6a4f4d8c9f33b5c1a8d7e260':'67336c0c5b24fb4b8caac248dad3c55d'} },
   { name:'Anime x HiDive',     logo:null, cat:'entertainment', url:'https://amc-anime-x-hidive-1-us.tablo.wurl.tv/4300.m3u8' },
   { name:'Bilyonaryo Channel', logo:null, cat:'news',          url:'https://amg19223-amg19223c11-amgplt0352.playout.now3.amagi.tv/playlist/amg19223-amg19223c11-amgplt0352/playlist.m3u8' },
   { name:'BBC News',           logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/BBC_News_2019.svg/1200px-BBC_News_2019.svg.png', cat:'news', url:'https://vs-hls-push-ww-live.akamaized.net/x=4/i=urn:bbc:pips:service:bbc_news_channel_hd/t=3840/v=pv14/b=5070016/main.m3u8' },
@@ -162,7 +159,7 @@ const PH_CHANNELS = [
   status:  'online',
   country: 'PH',
   ctname:  'Philippines',
-  flag:    '🇵🇭',
+  flag:    '\uD83C\uDDF5\uD83C\uDDED',
 }));
 function showSkeletons(n=16){
   chList.innerHTML=Array.from({length:n},(_,i)=>`
@@ -755,24 +752,9 @@ function playDash(ch) {
     return;
   }
 
-  if (dashPlayer) { dashPlayer.reset(); }
-  else { dashPlayer = dashjs.MediaPlayer().create(); }
-
-  /* Build ClearKey protection data from the hex key map:
-     { keyId (hex) : key (hex) } → dash.js ClearKey format */
-  let protectionData = null;
-  if (ch.drm) {
-    const keys = {};
-    for (const [hexKid, hexKey] of Object.entries(ch.drm)) {
-      /* dash.js expects base64url-encoded kid and key */
-      keys[hexToBase64url(hexKid)] = hexToBase64url(hexKey);
-    }
-    protectionData = {
-      'org.w3.clearkey': {
-        clearkeys: keys,
-      },
-    };
-  }
+  /* Always create a fresh player to avoid stale protection state */
+  if (dashPlayer) { try { dashPlayer.destroy(); } catch(e){} }
+  dashPlayer = dashjs.MediaPlayer().create();
 
   dashPlayer.updateSettings({
     streaming: {
@@ -781,13 +763,25 @@ function playDash(ch) {
     },
   });
 
-  dashPlayer.initialize(video, ch.url, true);
-
-  if (protectionData) {
-    dashPlayer.setProtectionData(protectionData);
+  /* Build ClearKey protection data.
+     Must be set BEFORE initialize().
+     dash.js clearkeys map: { "kid_base64url": "key_base64url" }
+     The KID bytes must also be represented as a hex string in the
+     'laURL' variant — we support both formats by providing clearkeys. */
+  if (ch.drm) {
+    const clearkeys = {};
+    for (const [hexKid, hexKey] of Object.entries(ch.drm)) {
+      clearkeys[hexToBase64url(hexKid)] = hexToBase64url(hexKey);
+    }
+    dashPlayer.setProtectionData({
+      'org.w3.clearkey': { clearkeys },
+    });
   }
 
+  dashPlayer.initialize(video, ch.url, true);
+
   dashPlayer.on(dashjs.MediaPlayer.events.ERROR, e => {
+    if (e?.error === 'capability' || e?.error === 'mediasource') return;
     console.warn('[StreamBox] DASH error', e);
     showBuf(false);
     showErr('Stream error. Channel may be offline or geo-blocked.');
@@ -824,11 +818,17 @@ function bindHlsEvents() {
 /* Clear spinner and reattach player when exiting fullscreen */
 function onFullscreenExit() {
   showBuf(false);
-  /* Reattach hls.js to the video element — iOS detaches it on webkitEnterFullscreen exit */
-  if (hls && currentChannel) {
+  if (!currentChannel) return;
+
+  if (hls) {
+    /* iOS Safari fully detaches the video element from hls.js when
+       exiting native fullscreen via webkitEnterFullscreen.
+       Re-attaching alone is not enough — we must reload the source. */
+    hls.detachMedia();
+    hls.loadSource(currentChannel.url);
     hls.attachMedia(video);
     video.play().catch(() => {});
-  } else if (dashPlayer && currentChannel) {
+  } else if (dashPlayer) {
     video.play().catch(() => {});
   }
 }
