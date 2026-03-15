@@ -1437,6 +1437,28 @@ function openAbout() {
   aboutOverlay.classList.add('open');
   $('about-channel-count').textContent = `${allChannels.length.toLocaleString()} channels available`;
   document.body.style.overflow = 'hidden';
+
+  /* Wire copy account number button (once) */
+  const copyBtn   = $('copy-acct-btn');
+  const copyLabel = $('copy-acct-label');
+  if (copyBtn && !copyBtn._wired) {
+    copyBtn._wired = true;
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText('017356058551');
+      } catch {
+        const range = document.createRange();
+        range.selectNode($('acct-number'));
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+        document.execCommand('copy');
+        window.getSelection().removeAllRanges();
+      }
+      copyLabel.textContent = 'Copied!';
+      copyBtn.classList.add('copied');
+      setTimeout(() => { copyLabel.textContent = 'Copy'; copyBtn.classList.remove('copied'); }, 2000);
+    });
+  }
 }
 function closeAbout() {
   aboutOverlay.classList.remove('open');
