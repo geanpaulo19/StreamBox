@@ -1091,3 +1091,40 @@ input[type="search"]::-webkit-search-decoration { display: none; -webkit-appeara
     max-height: 88dvh; padding: 24px 20px 32px;
   }
 }
+
+/* ============================================================
+   PWA INSTALL BANNER
+   ============================================================ */
+#install-banner {
+  position: fixed; bottom: 80px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg-card); border: 1px solid var(--border-active);
+  border-radius: var(--r-md); padding: 10px 14px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.5);
+  z-index: 9998; white-space: nowrap;
+  animation: fadeUp .3s var(--ease) both;
+}
+.install-banner-text { font-size: .8rem; color: var(--txt-1); }
+.install-banner-btn {
+  background: var(--accent); color: #fff;
+  border: none; border-radius: var(--r-sm);
+  padding: 5px 14px; font-family: var(--font);
+  font-size: .78rem; font-weight: 600; cursor: pointer;
+  transition: opacity .2s;
+}
+.install-banner-btn:hover { opacity: .85; }
+.install-banner-dismiss {
+  color: var(--txt-3); font-size: .8rem; padding: 2px 4px;
+  border-radius: 4px; transition: color .15s;
+}
+.install-banner-dismiss:hover { color: var(--txt-1); }
+
+@media (max-width: 600px) {
+  #install-banner {
+    left: 12px; right: 12px; bottom: 72px;
+    transform: none; white-space: normal;
+    flex-wrap: wrap;
+  }
+  .install-banner-text { flex: 1 100%; }
+}
