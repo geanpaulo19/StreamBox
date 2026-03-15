@@ -1,8 +1,3 @@
-/* ============================================================
-   StreamBox — app.js
-   Source  : iptv-org  (channels.json + streams.json + countries.json)
-   Coverage: All countries worldwide, filtered client-side
-   ============================================================ */
 'use strict';
 
 const EP = {
@@ -90,9 +85,6 @@ const loadBar       = document.createElement('div');
 loadBar.id = 'load-bar';
 $('channel-list').before(loadBar);
 
-/* ============================================================
-   CATEGORY MAP
-   ============================================================ */
 const CAT_MAP = {
   general:'general', news:'news', entertainment:'entertainment',
   sports:'sports', kids:'kids', music:'entertainment', movies:'entertainment',
@@ -118,9 +110,6 @@ function mapCat(cats = []) {
   return 'general';
 }
 
-/* ============================================================
-   M3U PARSER  (unused for global load, kept for future)
-   ============================================================ */
 function parseM3U(text) {
   const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
   const out=[], attr=(l,k)=>{const m=l.match(new RegExp(String.raw`${k}="([^"]*)"`,'i'));return m?m[1].trim():'';};
@@ -139,11 +128,6 @@ function parseM3U(text) {
 
 function toSlug(s){return s.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');}
 
-/* ============================================================
-   LOCAL PH CHANNELS — manually curated, injected after API load.
-   Only HLS (.m3u8) streams are included. DRM/.mpd streams are
-   excluded as they require a license server to play.
-   ============================================================ */
 const PH_CHANNELS = [
   { name:'GMA 7',              logo:'https://upload.wikimedia.org/wikipedia/en/thumb/9/93/GMA_Network_logo.svg/1200px-GMA_Network_logo.svg.png', cat:'entertainment', url:'https://gsattv.akamaized.net/live/media0/gma7/Fairplay/gma7.m3u8' },
   { name:'Star Movies',        logo:'https://upload.wikimedia.org/wikipedia/en/thumb/4/4f/Star_Movies_logo.svg/1200px-Star_Movies_logo.svg.png', cat:'entertainment', url:'https://converse.nathcreqtives.com/channels/starmovies/playlist.m3u8?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJNb29uIiwiaWF0IjoxNzcyNTg1NDEyLCJleHAiOjE3NzM4ODE0MTIsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3Mzg4MTQxMn0.pWBHcolaeZXd-5DAkMobbJn5DbFoSTDEWYuQn0LC5U4' },
@@ -198,11 +182,27 @@ function showSkeletons(n=16){
     </li>`).join('');
 }
 
-/* ============================================================
-   DATA LOADING
-   Fires channels.json, streams.json, and countries.json together.
-   No country filter — loads everything, filters client-side.
-   ============================================================ */
+async function detectCountry() {
+  if (!navigator.geolocation) return null;
+  return new Promise(resolve => {
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          const r = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json`,
+            { signal: AbortSignal.timeout(4000) }
+          );
+          const j = await r.json();
+          const code = j?.address?.country_code?.toUpperCase() || null;
+          resolve(code && /^[A-Z]{2}$/.test(code) ? code : null);
+        } catch { resolve(null); }
+      },
+      () => resolve(null),
+      { timeout: 8000, maximumAge: 86400000 }
+    );
+  });
+}
+
 async function loadAll() {
   showSkeletons();
   loadBar.classList.remove('done');
@@ -294,12 +294,14 @@ async function loadAll() {
   buildSearchIndex();
   buildCountryDropdown();
   syncCatTabs();
+
+  const lastId = loadLastChannelId();
+
   applyFilters();
   renderSuggestions();
   channelTotal.innerHTML = `<span>${allChannels.length.toLocaleString()}</span> channels`;
   loadBar.classList.add('done');
 
-  /* Add Favourites tab to sidebar (always present) */
   if (!$('cat-tab-favs')) {
     const favTab = document.createElement('button');
     favTab.className = 'cat-tab';
@@ -309,20 +311,25 @@ async function loadAll() {
     $('cat-tabs').prepend(favTab);
   }
 
-  /* Restore last channel — start muted so browser allows autoplay */
-  const lastId = loadLastChannelId();
   if (lastId) {
     const last = allChannels.find(c => c.id === lastId);
     if (last) {
       isRestoring = true;
       setTimeout(() => switchTo(last), 300);
     }
+  } else {
+    /* First visit — ask for location after a short delay so channels render first */
+    setTimeout(async () => {
+      const code = await detectCountry();
+      if (code && countryMap[code]) {
+        const { name, flag } = countryMap[code];
+        selectCountry(code, flag, name);
+        showToast(`📍 Showing channels for ${name}`);
+      }
+    }, 800);
   }
 }
 
-/* ============================================================
-   COUNTRY DROPDOWN — custom, scrollable, no native <select>
-   ============================================================ */
 function buildCountryDropdown() {
   const seen = new Map();
   for (const ch of allChannels) {
@@ -403,9 +410,6 @@ document.addEventListener('click', e => {
   if (!countryDropdown.contains(e.target)) closeDropdown();
 });
 
-/* ============================================================
-   CATEGORY TABS — dynamic, reflects active country's categories
-   ============================================================ */
 function syncCatTabs() {
   /* Which channels are in scope for the current country? */
   const scope  = currentCountry === 'all'
@@ -429,12 +433,6 @@ function syncCatTabs() {
   }
 }
 
-/* ============================================================
-   VIRTUAL SCROLL
-   Structure kept stable across scrolls:
-     [topSpacer] [visible rows…] [bottomSpacer]
-   Only the middle rows are swapped — spacers never move.
-   ============================================================ */
 let vsTopSpacer    = null;
 let vsBottomSpacer = null;
 let vsRafPending   = false;
@@ -590,9 +588,6 @@ function buildItem(ch, i) {
   return li;
 }
 
-/* ============================================================
-   ELEMENT HELPERS
-   ============================================================ */
 /* Cache of logo URLs that have previously 404'd — skip img for these */
 const failedLogos = new Set();
 
@@ -680,11 +675,6 @@ function flagEmoji(code=''){
   return [...code.toUpperCase()].map(c=>String.fromCodePoint(c.codePointAt(0)+127397)).join('');
 }
 
-/* ============================================================
-   FILTERS — Country + Category + Search
-   Pre-lowercased fields cached on each channel object so
-   filter() never calls .toLowerCase() at query time.
-   ============================================================ */
 function buildSearchIndex() {
   for (const ch of allChannels) {
     ch._nameL  = ch.name.toLowerCase();
@@ -710,9 +700,6 @@ function applyFilters() {
   chCount.innerHTML = `<span>${filteredChs.length.toLocaleString()}</span> ${label} · ${esc(ctLabel)}`;
 }
 
-/* ============================================================
-   SUGGESTIONS — O(n) reservoir sample, no full-array sort
-   ============================================================ */
 function reservoirSample(arr, k) {
   /* Fisher-Yates partial shuffle — stops after k picks */
   const result = [];
@@ -792,9 +779,6 @@ function renderSuggestions() {
   sugList.appendChild(frag);
 }
 
-/* ============================================================
-   SEARCH DROPDOWN — AJAX-style results panel
-   ============================================================ */
 const searchDropdown = $('search-results-dropdown');
 const searchClear    = $('search-clear');
 const MAX_RESULTS    = 20;
@@ -952,9 +936,6 @@ catTabs.addEventListener('click', e => {
   applyFilters();
 });
 
-/* ============================================================
-   CORE — switchTo(ch)
-   ============================================================ */
 function switchTo(ch) {
   if (!ch?.url) { showToast('⚠ No stream URL for this channel'); return; }
 
@@ -1244,18 +1225,8 @@ video.addEventListener('timeupdate', () => showBuf(false));
 video.addEventListener('stalled',    () => showBuf(true));
 video.addEventListener('error',      () => { showBuf(false); if(currentChannel) showErr('Could not load stream.'); });
 
-/* ============================================================
-   NOW PLAYING BADGE — CSS animation auto-fades after 5s
-   ============================================================ */
-
-/* ============================================================
-   UI HELPERS
-   ============================================================ */
 function showErr(msg){ errorMsg.textContent=msg; errorOvl.classList.add('show'); }
 
-/* ============================================================
-   NOW PLAYING BADGE — CSS animation auto-fades after 5s
-   ============================================================ */
 function showBadge(ch) {
   if (!ch) return;
   nowName.textContent = ch.name;
@@ -1325,9 +1296,6 @@ function showToast(msg, ms=2400){
   setTimeout(()=>toast.classList.remove('show'),ms);
 }
 
-/* ============================================================
-   CONTROLS
-   ============================================================ */
 $('retry-btn').addEventListener('click',()=>{ if(!retryTarget) return; errorOvl.classList.remove('show'); switchTo(retryTarget); });
 
 /* Clicking the mute hint unmutes */
@@ -1382,9 +1350,6 @@ $('fullscreen-btn').addEventListener('click', toggleFullscreen);
 $('mob-mute-btn').addEventListener('click', toggleMute);
 $('mob-fullscreen-btn').addEventListener('click', toggleFullscreen);
 
-/* ============================================================
-   SIDEBAR TOGGLE — desktop collapses grid, mobile opens drawer
-   ============================================================ */
 const app = $('app');
 
 function isMobile() { return window.innerWidth <= 900; }
@@ -1415,9 +1380,6 @@ $('mob-search').addEventListener('click',()=>{
   setTimeout(()=>sidebarSearchInput.focus(), 120);
 });
 
-/* ============================================================
-   HELP MODAL
-   ============================================================ */
 const helpOverlay = $('help-overlay');
 
 function openHelp()  { helpOverlay.classList.add('open');    document.body.style.overflow = 'hidden'; }
@@ -1481,14 +1443,8 @@ document.addEventListener('keydown',e=>{
   if(e.key==='/'){ e.preventDefault(); searchInput.focus(); }
 });
 
-/* ============================================================
-   INIT
-   ============================================================ */
 loadAll();
 
-/* ============================================================
-   PWA — Service Worker + Install prompt
-   ============================================================ */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js', { scope: '/' })
