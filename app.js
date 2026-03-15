@@ -1052,7 +1052,12 @@ function bindHlsEvents() {
 function onFullscreenExit() {
   showBuf(false);
   if (!currentChannel) return;
-  showResumeOverlay();
+  /* Resume overlay only on mobile — desktop/laptop/tablet auto-resumes */
+  if (isMobile()) {
+    showResumeOverlay();
+  } else {
+    resumeAfterFullscreen();
+  }
 }
 
 function showResumeOverlay() {
@@ -1349,8 +1354,8 @@ let deferredInstallPrompt = null;
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   deferredInstallPrompt = e;
-
-  /* Show install nudge after a short delay, once user has interacted */
+  /* Only show install nudge on mobile — desktop users can install via browser UI */
+  if (!isMobile()) return;
   setTimeout(() => {
     if (deferredInstallPrompt) showInstallBanner();
   }, 20000);
