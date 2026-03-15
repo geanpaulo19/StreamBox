@@ -663,6 +663,8 @@ input[type="search"]::-webkit-search-decoration { display: none; -webkit-appeara
   backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   border-top: 1px solid var(--border); z-index: 200;
   align-items: stretch;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-sizing: content-box;
 }
 .mob-tab {
   flex: 1;
