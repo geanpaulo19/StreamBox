@@ -1,16 +1,19 @@
 /* ============================================================
-   StreamBox — Service Worker
-   Strategy:
-     • Static assets (HTML, CSS, JS, fonts, images) → Cache First
-     • IPTV API calls (channels/streams/countries JSON) → Network First
-     • Everything else → Network with cache fallback
+   StreamBox — Service Worker  (sw.js)
+   Scope   : / (tv.geanpaulo.com only — separate subdomain from EliteInvoice)
+   Cache   : streambox-v1  (unique name — won't collide with other PWAs)
+
+   Strategies:
+     Static assets  → Cache First  (instant repeat loads)
+     IPTV API JSON  → Network First (always try for fresh channel data)
+     Live streams   → Bypass entirely (never cache .m3u8 / .mpd / .ts)
    ============================================================ */
 'use strict';
 
-const CACHE_NAME    = 'streambox-v1';
-const CACHE_TIMEOUT = 4000; // ms before falling back to cache on slow networks
+const CACHE     = 'streambox-v1';
+const SW_SCOPE  = self.registration.scope;  // https://tv.geanpaulo.com/
 
-const STATIC_ASSETS = [
+const PRECACHE = [
   '/',
   '/index.html',
   '/style.css',
@@ -20,112 +23,111 @@ const STATIC_ASSETS = [
   '/images/tvbox512.png',
 ];
 
-const API_ORIGINS = [
+/* Hosts whose responses should use Network-First */
+const NETWORK_FIRST_HOSTS = [
   'iptv-org.github.io',
 ];
 
-/* ── Install: pre-cache static assets ───────────────────────── */
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
+/* URL patterns that must NEVER be intercepted (live streams, DRM, fonts) */
+const BYPASS_PATTERNS = [
+  /\.m3u8(\?|$)/,
+  /\.mpd(\?|$)/,
+  /\.ts(\?|$)/,
+  /\.aac(\?|$)/,
+  /\.key(\?|$)/,
+  /\/live\//,
+  /\/hls\//,
+  /\/dash\//,
+  /akamaized\.net/,
+  /googleapis\.com\/css/,   // Google Fonts CSS — let browser handle caching
+  /gstatic\.com/,
+];
+
+/* ── Install ─────────────────────────────────────────────────── */
+self.addEventListener('install', e => {
+  e.waitUntil(
+    caches.open(CACHE).then(c => c.addAll(PRECACHE)).then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
-/* ── Activate: delete old caches ────────────────────────────── */
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    )
+/* ── Activate: clean up old caches from previous SW versions ─── */
+self.addEventListener('activate', e => {
+  e.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(
+        keys
+          .filter(k => k !== CACHE && k.startsWith('streambox-'))
+          .map(k => caches.delete(k))
+      ))
+      .then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-/* ── Fetch: routing strategy ─────────────────────────────────── */
-self.addEventListener('fetch', event => {
-  const { request } = event;
-  const url = new URL(request.url);
+/* ── Fetch ───────────────────────────────────────────────────── */
+self.addEventListener('fetch', e => {
+  const req = e.request;
+  if (req.method !== 'GET') return;
 
-  /* Skip non-GET and cross-origin media/stream requests */
-  if (request.method !== 'GET') return;
-  if (isStreamUrl(url)) return;
+  let url;
+  try { url = new URL(req.url); } catch { return; }
 
-  /* IPTV API → Network First (fresh data matters) */
-  if (API_ORIGINS.some(o => url.hostname.includes(o))) {
-    event.respondWith(networkFirst(request));
+  /* Always bypass live stream & third-party resource requests */
+  if (shouldBypass(url)) return;
+
+  /* IPTV API → Network First */
+  if (NETWORK_FIRST_HOSTS.some(h => url.hostname.includes(h))) {
+    e.respondWith(networkFirst(req));
     return;
   }
 
-  /* Static assets → Cache First */
-  if (isStaticAsset(url)) {
-    event.respondWith(cacheFirst(request));
+  /* Same-origin static assets → Cache First */
+  if (url.origin === SW_SCOPE.replace(/\/$/, '') || url.hostname === self.location.hostname) {
+    e.respondWith(cacheFirst(req));
     return;
   }
 
-  /* Default → Network with cache fallback */
-  event.respondWith(networkWithFallback(request));
+  /* Everything else → passthrough (don't interfere) */
 });
 
-/* ── Strategies ──────────────────────────────────────────────── */
-async function cacheFirst(request) {
-  const cached = await caches.match(request);
+/* ── Caching strategies ──────────────────────────────────────── */
+async function cacheFirst(req) {
+  const cached = await caches.match(req, { ignoreSearch: false });
   if (cached) return cached;
   try {
-    const response = await fetch(request);
-    if (response.ok) {
-      const cache = await caches.open(CACHE_NAME);
-      cache.put(request, response.clone());
+    const res = await fetch(req);
+    if (res.ok && res.status < 400) {
+      const cache = await caches.open(CACHE);
+      cache.put(req, res.clone());
     }
-    return response;
+    return res;
   } catch {
-    return new Response('Offline', { status: 503 });
+    /* Offline and not cached — return shell for navigation requests */
+    if (req.mode === 'navigate') return caches.match('/index.html');
+    return new Response('', { status: 503, statusText: 'Offline' });
   }
 }
 
-async function networkFirst(request) {
+async function networkFirst(req) {
   try {
-    const response = await fetchWithTimeout(request, CACHE_TIMEOUT);
-    if (response.ok) {
-      const cache = await caches.open(CACHE_NAME);
-      cache.put(request, response.clone());
+    const res = await Promise.race([
+      fetch(req),
+      new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 5000)),
+    ]);
+    if (res.ok) {
+      const cache = await caches.open(CACHE);
+      cache.put(req, res.clone());
     }
-    return response;
+    return res;
   } catch {
-    const cached = await caches.match(request);
+    const cached = await caches.match(req);
+    /* Return empty array so the app gracefully handles no data */
     return cached || new Response('[]', {
-      headers: { 'Content-Type': 'application/json' }
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 }
 
-async function networkWithFallback(request) {
-  try {
-    return await fetch(request);
-  } catch {
-    const cached = await caches.match(request);
-    return cached || caches.match('/index.html');
-  }
-}
-
-function fetchWithTimeout(request, ms) {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('timeout')), ms);
-    fetch(request).then(r => { clearTimeout(timer); resolve(r); }, reject);
-  });
-}
-
-/* ── Helpers ─────────────────────────────────────────────────── */
-function isStaticAsset(url) {
-  return url.pathname.match(/\.(css|js|png|jpg|webp|svg|ico|woff2?|ttf)$/) ||
-         url.pathname === '/' ||
-         url.pathname === '/index.html';
-}
-
-function isStreamUrl(url) {
-  /* Never intercept live stream or DRM requests */
-  return url.pathname.match(/\.(m3u8|mpd|ts|aac|mp4|key)$/) ||
-         url.pathname.includes('/live/') ||
-         url.pathname.includes('/hls/') ||
-         url.pathname.includes('/dash/');
+function shouldBypass(url) {
+  return BYPASS_PATTERNS.some(p => p.test(url.href));
 }
