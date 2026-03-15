@@ -659,7 +659,9 @@ input[type="search"]::-webkit-search-decoration { display: none; -webkit-appeara
    ============================================================ */
 #mobile-nav {
   display: none; position: fixed; bottom: 0; left: 0; right: 0;
-  height: var(--mobile-nav-h); background: rgba(8,9,14,.97);
+  height: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: rgba(8,9,14,.97);
   backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   border-top: 1px solid var(--border); z-index: 200;
   align-items: stretch;
@@ -723,7 +725,7 @@ input[type="search"]::-webkit-search-decoration { display: none; -webkit-appeara
   /* Sidebar drawer */
   #sidebar {
     position: fixed;
-    top: var(--header-h); left: 0; bottom: var(--mobile-nav-h);
+    top: var(--header-h); left: 0; bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px));
     width: min(var(--sidebar-w), 88vw);
     z-index: 150;
     transform: translateX(-100%);
@@ -740,7 +742,7 @@ input[type="search"]::-webkit-search-decoration { display: none; -webkit-appeara
   /* Backdrop */
   .sidebar-overlay {
     display: none; position: fixed;
-    inset: 0; top: var(--header-h); bottom: var(--mobile-nav-h);
+    inset: 0; top: var(--header-h); bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px));
     background: rgba(0,0,0,.6); z-index: 140;
   }
   .sidebar-overlay.show { display: block; }
@@ -752,7 +754,7 @@ input[type="search"]::-webkit-search-decoration { display: none; -webkit-appeara
   #main {
     height: calc(100dvh - var(--header-h));
     min-height: 0;
-    padding-bottom: var(--mobile-nav-h);
+    padding-bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px));
   }
 
   /* Player */
@@ -770,7 +772,7 @@ input[type="search"]::-webkit-search-decoration { display: none; -webkit-appeara
   }
 
   /* Toast lifts above mobile nav */
-  #toast { bottom: calc(var(--mobile-nav-h) + 10px); }
+  #toast { bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px); }
 
   /* ── Now-playing strip + controls ──────────────────────── */
   .sug-header-top {
