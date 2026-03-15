@@ -6,6 +6,7 @@ const EP = {
   countries: 'https://iptv-org.github.io/api/countries.json',
 };
 
+
 /* ─── State ───────────────────────────────────────────────────── */
 let allChannels    = [];   // full merged list (all countries)
 let filteredChs    = [];   // current view after country + cat + search
@@ -159,6 +160,9 @@ const PH_CHANNELS = [
   { name:'FIFA+',              logo:null, cat:'sports',        url:'https://ca333c39.wurl.com/v1/sysdata_s_p_a_fifa_6/ohlscdn_us/latest/main/hls/playlist.m3u8' },
   { name:'Tennis+',            logo:null, cat:'sports',        url:'https://amg01935-amg01935c1-amgplt0352.playout.now3.amagi.tv/playlist/amg01935-amg01935c1-amgplt0352/playlist.m3u8' },
   { name:'Billiard TV',        logo:null, cat:'sports',        url:'https://1621590671.rsc.cdn77.org/HLS/BILLIARDTV_SCTE.m3u8' },
+  { name:'InTravel',           logo:'https://jiotvimages.cdn.jio.com/dare_images/images/Intravel.png',  cat:'entertainment', url:'https://amg00861-amg00861c10-rakuten-uk-3152.playouts.now.amagi.tv/playlist.m3u8' },
+  { name:'PTV 4',              logo:'https://i.imgur.com/MMccHNd.png',  cat:'news',          url:'https://streams.comclark.com/pknsd/ptv/playlist.m3u8' },
+  { name:'RTM ASEAN',          logo:'https://i.imgur.com/skAiUxg.png',  cat:'news',          url:'https://d25tgymtnqzu8s.cloudfront.net/event/smil:event1/chunklist_b2596000_slENG.m3u8' },
 ].map(ch => ({
   id:      'ph-local-' + ch.name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''),
   name:    ch.name,
@@ -170,6 +174,22 @@ const PH_CHANNELS = [
   country: 'PH',
   ctname:  'Philippines',
   flag:    '\uD83C\uDDF5\uD83C\uDDED',
+}));
+
+const US_CHANNELS = [
+  { name:'National Geographic HD',      logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fc/Natgeologo.svg/960px-Natgeologo.svg.png',             cat:'entertainment', url:'https://tvpass.org/live/NationalGeographicEast/hd' },
+  { name:'National Geographic Wild HD', logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/National_Geographic_Wild_logo.svg/960px-National_Geographic_Wild_logo.svg.png', cat:'entertainment', url:'https://tvpass.org/live/NationalGeographicWildEast/hd' },
+].map(ch => ({
+  id:      'us-local-' + ch.name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''),
+  name:    ch.name,
+  logo:    ch.logo,
+  cat:     ch.cat,
+  url:     ch.url,
+  drm:     null,
+  status:  'online',
+  country: 'US',
+  ctname:  'United States',
+  flag:    '\uD83C\uDDFA\uD83C\uDDF8',
 }));
 function showSkeletons(n=16){
   chList.innerHTML=Array.from({length:n},(_,i)=>`
@@ -324,7 +344,6 @@ async function loadAll() {
       if (code && countryMap[code]) {
         const { name, flag } = countryMap[code];
         selectCountry(code, flag, name);
-        showToast(`📍 Showing channels for ${name}`);
       }
     }, 800);
   }
@@ -941,6 +960,7 @@ function switchTo(ch) {
 
   currentChannel = ch;
   retryTarget    = ch;
+  pausedAt       = null;
   saveLastChannel(ch.id);
 
   /* Mark active by data-id — works regardless of virtual scroll window */
@@ -967,6 +987,7 @@ function switchTo(ch) {
   idleScreen.classList.add('hidden');
   errorOvl.classList.remove('show');
   hideBadge();
+  syncPlayPauseBtn();
   showBuf(true);
   updateInfoBar(ch);
   closeSidebar();
@@ -1194,6 +1215,16 @@ function showResumeOverlay() {
 function resumeAfterFullscreen() {
   if (!currentChannel) return;
 
+  /* If paused for a long time, do a full reload to snap to live edge */
+  const pausedSec = pausedAt ? (Date.now() - pausedAt) / 1000 : 0;
+  if (pausedSec > 10) {
+    pausedAt = null;
+    switchTo(currentChannel);
+    return;
+  }
+
+  pausedAt = null;
+
   if (currentChannel.url.includes('.mpd')) {
     video.play().catch(() => {});
     return;
@@ -1225,7 +1256,13 @@ video.addEventListener('timeupdate', () => showBuf(false));
 video.addEventListener('stalled',    () => showBuf(true));
 video.addEventListener('error',      () => { showBuf(false); if(currentChannel) showErr('Could not load stream.'); });
 
-function showErr(msg){ errorMsg.textContent=msg; errorOvl.classList.add('show'); }
+function showErr(msg) {
+  errorMsg.textContent = msg;
+  errorOvl.classList.add('show');
+  /* Hide play/pause when stream fails */
+  const btn = $('playpause-btn');
+  if (btn) btn.hidden = true;
+}
 
 function showBadge(ch) {
   if (!ch) return;
@@ -1338,17 +1375,78 @@ let stallTimer = null;
 function showBuf(v) {
   clearTimeout(stallTimer);
   if (v) {
-    /* Delay showing the spinner 600ms — avoids flash on quick quality switches */
-    stallTimer = setTimeout(() => bufferOvl.classList.add('show'), 600);
+    stallTimer = setTimeout(() => { bufferOvl.classList.add('show'); syncPlayPauseBtn(); }, 600);
   } else {
     bufferOvl.classList.remove('show');
+    syncPlayPauseBtn();
   }
 }
+
+let isPlaying = false;
+let pausedAt  = null;
+
+function syncPlayPauseBtn() {
+  const PLAY_SVG  = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
+  const PAUSE_SVG = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><line x1="6" y1="4" x2="6" y2="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="18" y1="4" x2="18" y2="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>`;
+  const btn = $('playpause-btn'); if (!btn) return;
+  const hasError  = errorOvl.classList.contains('show');
+  const isIdle    = !idleScreen.classList.contains('hidden');
+  const isLoading = bufferOvl.classList.contains('show');
+  btn.innerHTML = isPlaying
+    ? `${PAUSE_SVG} Pause`
+    : `${PLAY_SVG} Play`;
+  btn.setAttribute('aria-label', isPlaying ? 'Pause' : 'Play');
+  btn.hidden = !currentChannel || hasError || isIdle || isLoading;
+  btn.style.opacity = isPlaying ? '' : '1';
+}
+
+/* ── Player hover / idle controls ──────────────────────────────
+   Show overlay + button on mouse move, hide after 3s of inactivity */
+let playerIdleTimer = null;
+const playerWrap = $('player-wrap');
+
+function showPlayerControls() {
+  playerWrap.classList.add('controls-visible');
+  clearTimeout(playerIdleTimer);
+  if (isPlaying) {
+    playerIdleTimer = setTimeout(() => {
+      playerWrap.classList.remove('controls-visible');
+    }, 3000);
+  }
+}
+
+playerWrap.addEventListener('mousemove',  showPlayerControls);
+playerWrap.addEventListener('mouseenter', showPlayerControls);
+playerWrap.addEventListener('mouseleave', () => {
+  clearTimeout(playerIdleTimer);
+  playerWrap.classList.remove('controls-visible');
+});
+
+function togglePlayPause() {
+  if (!currentChannel) return;
+  if (!isPlaying) {
+    const pausedSec = pausedAt ? (Date.now() - pausedAt) / 1000 : 0;
+    if (pausedSec > 10) {
+      pausedAt = null;
+      switchTo(currentChannel);
+      return;
+    }
+    video.play().catch(() => {});
+    pausedAt = null;
+  } else {
+    video.pause();
+    pausedAt = Date.now();
+  }
+}
+
+video.addEventListener('play',  () => { isPlaying = true;  syncPlayPauseBtn(); showPlayerControls(); });
+video.addEventListener('pause', () => { isPlaying = false; syncPlayPauseBtn(); clearTimeout(playerIdleTimer); playerWrap.classList.add('controls-visible'); });
 
 $('mute-btn').addEventListener('click', toggleMute);
 $('fullscreen-btn').addEventListener('click', toggleFullscreen);
 $('mob-mute-btn').addEventListener('click', toggleMute);
 $('mob-fullscreen-btn').addEventListener('click', toggleFullscreen);
+$('playpause-btn').addEventListener('click', togglePlayPause);
 
 const app = $('app');
 
@@ -1439,6 +1537,7 @@ document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
   if(e.key==='m'){ isMuted=!isMuted; video.muted=isMuted; syncMuteBtn(); }
   if(e.key==='f') $('fullscreen-btn').click();
+  if(e.key===' '){ e.preventDefault(); togglePlayPause(); }
   if(e.key==='b' && !isMobile()) app.classList.toggle('sidebar-hidden');
   if(e.key==='/'){ e.preventDefault(); searchInput.focus(); }
 });
