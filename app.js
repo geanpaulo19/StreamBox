@@ -559,7 +559,13 @@ function buildItem(ch, i) {
     e.stopPropagation();
     toggleFav(ch.id);
   });
+  let favTouchStartY = 0;
+  favBtn.addEventListener('touchstart', e => {
+    favTouchStartY = e.touches[0].clientY;
+  }, { passive: true });
   favBtn.addEventListener('touchend', e => {
+    const moved = Math.abs(e.changedTouches[0].clientY - favTouchStartY);
+    if (moved > 8) return;
     e.stopPropagation();
     if (e.cancelable) e.preventDefault();
     toggleFav(ch.id);
@@ -567,12 +573,20 @@ function buildItem(ch, i) {
 
   li.append(wrap, info, dot, favBtn);
   li.addEventListener('click', () => switchTo(ch));
+
+  /* Track touch start position — cancel if user scrolled */
+  let touchStartY = 0;
+  li.addEventListener('touchstart', e => {
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
   li.addEventListener('touchend', e => {
-    /* Prevent the delayed click event that causes the double-tap issue on mobile */
+    const moved = Math.abs(e.changedTouches[0].clientY - touchStartY);
+    if (moved > 8) return; /* was a scroll, not a tap */
     if (e.cancelable) e.preventDefault();
     switchTo(ch);
   }, { passive: false });
-  li.addEventListener('keydown', e  => { if (e.key === 'Enter') switchTo(ch); });
+
+  li.addEventListener('keydown', e => { if (e.key === 'Enter') switchTo(ch); });
   return li;
 }
 
@@ -1034,24 +1048,48 @@ function bindHlsEvents() {
   });
 }
 
-/* Clear spinner and reattach player when exiting fullscreen */
+/* Clear spinner and show Resume overlay when exiting fullscreen on mobile */
 function onFullscreenExit() {
   showBuf(false);
   if (!currentChannel) return;
+  showResumeOverlay();
+}
+
+function showResumeOverlay() {
+  /* Remove any existing overlay */
+  const existing = $('resume-overlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'resume-overlay';
+  overlay.innerHTML = `
+    <button id="resume-btn">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Resume
+    </button>
+  `;
+  $('player-wrap').appendChild(overlay);
+
+  $('resume-btn').addEventListener('click', () => {
+    overlay.remove();
+    resumeAfterFullscreen();
+  });
+  $('resume-btn').addEventListener('touchend', e => {
+    if (e.cancelable) e.preventDefault();
+    overlay.remove();
+    resumeAfterFullscreen();
+  }, { passive: false });
+}
+
+function resumeAfterFullscreen() {
+  if (!currentChannel) return;
 
   if (currentChannel.url.includes('.mpd')) {
-    /* DASH — just resume */
     video.play().catch(() => {});
     return;
   }
 
-  /* HLS — iOS Safari destroys the media element binding on webkitEnterFullscreen exit.
-     The only reliable recovery is to fully destroy the hls instance and recreate it
-     from scratch, exactly like a fresh channel switch. */
-  if (hls) {
-    hls.destroy();
-    hls = null;
-  }
+  if (hls) { hls.destroy(); hls = null; }
 
   if (Hls.isSupported()) {
     hls = new Hls({
@@ -1063,7 +1101,6 @@ function onFullscreenExit() {
     bindHlsEvents();
     video.play().catch(() => {});
   } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-    /* Native HLS (Safari desktop) */
     video.src = currentChannel.url;
     video.play().catch(() => {});
   }
