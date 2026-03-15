@@ -821,7 +821,10 @@ function bindHlsEvents() {
   });
 }
 
-video.addEventListener('waiting',    () => showBuf(true));
+/* Clear spinner when exiting fullscreen */
+document.addEventListener('fullscreenchange',       () => { if (!document.fullscreenElement)       showBuf(false); });
+document.addEventListener('webkitfullscreenchange', () => { if (!document.webkitFullscreenElement) showBuf(false); });
+video.addEventListener('webkitendfullscreen',       () => showBuf(false));
 video.addEventListener('playing',    () => showBuf(false));
 video.addEventListener('canplay',    () => showBuf(false));
 video.addEventListener('timeupdate', () => showBuf(false));
