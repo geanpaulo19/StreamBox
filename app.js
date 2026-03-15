@@ -8,7 +8,7 @@ const EP = {
 
 const PROXY_BASE = 'https://streambox-proxy.geanpaulofrancois.workers.dev/proxy';
 
-const CORS_HOSTS = /akamaized\.net|akamaihd\.net|nathcreqtives\.com|comclark\.com|bozztv\.com|rsc\.cdn77\.org|klowdtv\.com|cloudfront\.net|astro\.com\.my|cgates\.lt|quieroxview\.com\.mx|fastly-edge\.com|aiv-cdn\.net|hls\.iill\.top/;
+const CORS_HOSTS = /hls\.iill\.top/;
 
 function corsProxy(url) {
   if (!url) return url;
@@ -144,37 +144,37 @@ function parseM3U(text) {
 function toSlug(s){return s.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');}
 
 const PH_CHANNELS = [
-  { name:'GMA 7',              logo:'https://upload.wikimedia.org/wikipedia/en/thumb/9/93/GMA_Network_logo.svg/1200px-GMA_Network_logo.svg.png', cat:'entertainment', url:corsProxy('https://gsattv.akamaized.net/live/media0/gma7/Fairplay/gma7.m3u8') },
-  { name:'Star Movies',        logo:'https://upload.wikimedia.org/wikipedia/en/thumb/4/4f/Star_Movies_logo.svg/1200px-Star_Movies_logo.svg.png', cat:'entertainment', url:corsProxy('https://converse.nathcreqtives.com/channels/starmovies/playlist.m3u8?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJNb29uIiwiaWF0IjoxNzcyNTg1NDEyLCJleHAiOjE3NzM4ODE0MTIsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3Mzg4MTQxMn0.pWBHcolaeZXd-5DAkMobbJn5DbFoSTDEWYuQn0LC5U4') },
-  { name:'Star Movies Select', logo:'https://upload.wikimedia.org/wikipedia/en/thumb/4/4f/Star_Movies_logo.svg/1200px-Star_Movies_logo.svg.png', cat:'entertainment', url:corsProxy('https://converse.nathcreqtives.com/channels/smselect/playlist.m3u8?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJNb29uIiwiaWF0IjoxNzcyNTg1NDEyLCJleHAiOjE3NzM4ODE0MTIsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3Mzg4MTQxMn0.pWBHcolaeZXd-5DAkMobbJn5DbFoSTDEWYuQn0LC5U4') },
-  { name:'Heart of Asia',      logo:null, cat:'entertainment', url:corsProxy('https://hls.nathcreqtives.com/playlist.m3u8?id=1&token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJNb29uIiwiaWF0IjoxNzcyNTg1NDEyLCJleHAiOjE3NzM4ODE0MTIsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3Mzg4MTQxMn0.pWBHcolaeZXd-5DAkMobbJn5DbFoSTDEWYuQn0LC5U4') },
+  { name:'GMA 7',              logo:'https://upload.wikimedia.org/wikipedia/en/thumb/9/93/GMA_Network_logo.svg/1200px-GMA_Network_logo.svg.png', cat:'entertainment', url:'https://gsattv.akamaized.net/live/media0/gma7/Fairplay/gma7.m3u8' },
+  { name:'Star Movies',        logo:'https://upload.wikimedia.org/wikipedia/en/thumb/4/4f/Star_Movies_logo.svg/1200px-Star_Movies_logo.svg.png', cat:'entertainment', url:'https://converse.nathcreqtives.com/channels/starmovies/playlist.m3u8?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJNb29uIiwiaWF0IjoxNzcyNTg1NDEyLCJleHAiOjE3NzM4ODE0MTIsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3Mzg4MTQxMn0.pWBHcolaeZXd-5DAkMobbJn5DbFoSTDEWYuQn0LC5U4' },
+  { name:'Star Movies Select', logo:'https://upload.wikimedia.org/wikipedia/en/thumb/4/4f/Star_Movies_logo.svg/1200px-Star_Movies_logo.svg.png', cat:'entertainment', url:'https://converse.nathcreqtives.com/channels/smselect/playlist.m3u8?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJNb29uIiwiaWF0IjoxNzcyNTg1NDEyLCJleHAiOjE3NzM4ODE0MTIsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3Mzg4MTQxMn0.pWBHcolaeZXd-5DAkMobbJn5DbFoSTDEWYuQn0LC5U4' },
+  { name:'Heart of Asia',      logo:null, cat:'entertainment', url:'https://hls.nathcreqtives.com/playlist.m3u8?id=1&token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJNb29uIiwiaWF0IjoxNzcyNTg1NDEyLCJleHAiOjE3NzM4ODE0MTIsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3Mzg4MTQxMn0.pWBHcolaeZXd-5DAkMobbJn5DbFoSTDEWYuQn0LC5U4' },
   { name:'AniPlus HD',         logo:null, cat:'entertainment', url:'https://amg18481-amg18481c1-amgplt0352.playout.now3.amagi.tv/playlist/amg18481-amg18481c1-amgplt0352/playlist.m3u8' },
   { name:'Anime x HiDive',     logo:null, cat:'entertainment', url:'https://amc-anime-x-hidive-1-us.tablo.wurl.tv/4300.m3u8' },
   { name:'Bilyonaryo Channel', logo:null, cat:'news',          url:'https://amg19223-amg19223c11-amgplt0352.playout.now3.amagi.tv/playlist/amg19223-amg19223c11-amgplt0352/playlist.m3u8' },
-  { name:'BBC News',           logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/BBC_News_2019.svg/1200px-BBC_News_2019.svg.png', cat:'news', url:corsProxy('https://vs-hls-push-ww-live.akamaized.net/x=4/i=urn:bbc:pips:service:bbc_news_channel_hd/t=3840/v=pv14/b=5070016/main.m3u8') },
+  { name:'BBC News',           logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/BBC_News_2019.svg/1200px-BBC_News_2019.svg.png', cat:'news', url:'https://vs-hls-push-ww-live.akamaized.net/x=4/i=urn:bbc:pips:service:bbc_news_channel_hd/t=3840/v=pv14/b=5070016/main.m3u8' },
   { name:'Moonbug',            logo:null, cat:'kids',          url:'https://moonbug-rokuus.amagi.tv/playlist.m3u8' },
-  { name:'Cartoon Channel PH', logo:null, cat:'kids',          url:corsProxy('https://live20.bozztv.com/giatv/giatv-cartoonchannelph/cartoonchannelph/chunks.m3u8') },
+  { name:'Cartoon Channel PH', logo:null, cat:'kids',          url:'https://live20.bozztv.com/giatv/giatv-cartoonchannelph/cartoonchannelph/chunks.m3u8' },
   { name:'CBeebies',           logo:null, cat:'kids',          url:'https://cdn4.skygo.mn/live/disk1/Cbeebies/HLSv3-FTA/Cbeebies.m3u8' },
   { name:'Pop',                logo:null, cat:'kids',          url:'https://amg01753-amg01753c6-samsung-au-6678.playouts.now.amagi.tv/playlist.m3u8' },
-  { name:'Arirang',            logo:null, cat:'general',       url:corsProxy('https://amdlive-ch01-ctnd-com.akamaized.net/arirang_1ch/smil:arirang_1ch.smil/playlist.m3u8') },
+  { name:'Arirang',            logo:null, cat:'general',       url:'https://amdlive-ch01-ctnd-com.akamaized.net/arirang_1ch/smil:arirang_1ch.smil/playlist.m3u8' },
   { name:'New K-Pop',          logo:null, cat:'entertainment', url:'https://newidco-newkid-1-eu.xiaomi.wurl.tv/playlist.m3u8' },
   { name:'Vevo Pop',           logo:null, cat:'entertainment', url:'https://amg00056-amg00056c6-rakuten-uk-3235.playouts.now.amagi.tv/playlist.m3u8' },
-  { name:'AMC+',               logo:null, cat:'entertainment', url:corsProxy('https://bcovlive-a.akamaihd.net/ba853de442c140b7b3dc020001597c0a/us-east-1/6245817279001/playlist.m3u8') },
+  { name:'AMC+',               logo:null, cat:'entertainment', url:'https://bcovlive-a.akamaihd.net/ba853de442c140b7b3dc020001597c0a/us-east-1/6245817279001/playlist.m3u8' },
   { name:'AMC Presents',       logo:null, cat:'entertainment', url:'https://amc-amcpresents-1-us.plex.wurl.tv/playlist.m3u8' },
   { name:'MovieSphere',        logo:null, cat:'entertainment', url:'https://amg00353-lionsgatestudio-moviesphere-xumo-zh5u0.amagi.tv/playlist.m3u8' },
   { name:'Outdoor',            logo:null, cat:'general',       url:'https://cdn-apse1-prod.tsv2.amagi.tv/linear/amg00718-outdoorchannela-outdoortvnz-samsungnz/playlist.m3u8' },
   { name:'Abante Radyo',       logo:null, cat:'news',          url:'https://amg19223-amg19223c12-amgplt0352.playout.now3.amagi.tv/playlist/amg19223-amg19223c12-amgplt0352/playlist.m3u8' },
-  { name:'Mindanow Network TV',logo:null, cat:'general',       url:corsProxy('https://streams.comclark.com/overlay/mindanow/playlist.m3u8') },
+  { name:'Mindanow Network TV',logo:null, cat:'general',       url:'https://streams.comclark.com/overlay/mindanow/playlist.m3u8' },
   { name:'Wild Earth',         logo:null, cat:'entertainment', url:'https://wildearth-plex.amagi.tv/masterR1080p.m3u8' },
   { name:'RT Documentary',     logo:null, cat:'entertainment', url:'https://rt-rtd.rttv.com/live/rtdoc/playlist_4500Kb.m3u8' },
-  { name:'Game Show Network',  logo:null, cat:'entertainment', url:corsProxy('https://a-cdn.klowdtv.com/live2/gsn_720p/chunks.m3u8') },
+  { name:'Game Show Network',  logo:null, cat:'entertainment', url:'https://a-cdn.klowdtv.com/live2/gsn_720p/chunks.m3u8' },
   { name:'DAZN Combat',        logo:null, cat:'sports',        url:'https://dazn-combat-rakuten.amagi.tv/hls/amagi_hls_data_rakutenAA-dazn-combat-rakuten/CDN/master.m3u8' },
   { name:'DAZN Ringside',      logo:null, cat:'sports',        url:'https://aegis-cloudfront-1.tubi.video/bfad29e2-5bee-44f3-8256-127324e8b106/playlist.m3u8' },
   { name:'UFC TV',             logo:null, cat:'sports',        url:'https://amg19223-amg19223c6-amgplt0351.playout.now3.amagi.tv/playlist/amg19223-amg19223c6-amgplt0351/playlist.m3u8' },
   { name:'FIFA+',              logo:null, cat:'sports',        url:'https://ca333c39.wurl.com/v1/sysdata_s_p_a_fifa_6/ohlscdn_us/latest/main/hls/playlist.m3u8' },
   { name:'Tennis+',            logo:null, cat:'sports',        url:'https://amg01935-amg01935c1-amgplt0352.playout.now3.amagi.tv/playlist/amg01935-amg01935c1-amgplt0352/playlist.m3u8' },
-  { name:'Billiard TV',        logo:null, cat:'sports',        url:corsProxy('https://1621590671.rsc.cdn77.org/HLS/BILLIARDTV_SCTE.m3u8') },
-  { name:'I Heart Movies',     logo:null, cat:'entertainment', url:corsProxy('https://hls.nathcreqtives.com/playlist.m3u8?id=2&token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJtb29uIiwiaWF0IjoxNzczNDk2MzU1LCJleHAiOjE3NzQ3OTIzNTUsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3NDc5MjM1NX0.szdxGfqa4x6drXDOIvNleWaVOMnlVpztAOcNyAnvz18') },
+  { name:'Billiard TV',        logo:null, cat:'sports',        url:'https://1621590671.rsc.cdn77.org/HLS/BILLIARDTV_SCTE.m3u8' },
+  { name:'I Heart Movies',     logo:null, cat:'entertainment', url:'https://hls.nathcreqtives.com/playlist.m3u8?id=2&token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJtb29uIiwiaWF0IjoxNzczNDk2MzU1LCJleHAiOjE3NzQ3OTIzNTUsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3NDc5MjM1NX0.szdxGfqa4x6drXDOIvNleWaVOMnlVpztAOcNyAnvz18' },
   { name:'BeIN Sports 2',      logo:null, cat:'sports',        url:corsProxy('https://hls.iill.top/api/beIN-Sports-2/index.m3u8') },
   { name:'BeIN Sports 3',      logo:null, cat:'sports',        url:corsProxy('https://hls.iill.top/api/beIN-Sports-3/index.m3u8') },
   { name:'TNT Sports 1',       logo:null, cat:'sports',        url:corsProxy('https://hls.iill.top/api/TNT-Sports-1/index.m3u8') },
@@ -183,8 +183,8 @@ const PH_CHANNELS = [
   { name:'TNT Sports 4',       logo:null, cat:'sports',        url:corsProxy('https://hls.iill.top/api/TNT-Sports-4/index.m3u8') },
   { name:'Sky Sports F1',      logo:'https://upload.wikimedia.org/wikipedia/en/thumb/d/d3/Sky_Sports_F1.svg/1200px-Sky_Sports_F1.svg.png', cat:'sports', url:corsProxy('https://hls.iill.top/api/Sky-Sports-F1/index.m3u8') },
   { name:'InTravel',           logo:'https://jiotvimages.cdn.jio.com/dare_images/images/Intravel.png',  cat:'entertainment', url:'https://amg00861-amg00861c10-rakuten-uk-3152.playouts.now.amagi.tv/playlist.m3u8' },
-  { name:'PTV 4',              logo:'https://i.imgur.com/MMccHNd.png',  cat:'news',          url:corsProxy('https://streams.comclark.com/pknsd/ptv/playlist.m3u8') },
-  { name:'RTM ASEAN',          logo:'https://i.imgur.com/skAiUxg.png',  cat:'news',          url:corsProxy('https://d25tgymtnqzu8s.cloudfront.net/event/smil:event1/chunklist_b2596000_slENG.m3u8') },
+  { name:'PTV 4',              logo:'https://i.imgur.com/MMccHNd.png',  cat:'news',          url:'https://streams.comclark.com/pknsd/ptv/playlist.m3u8' },
+  { name:'RTM ASEAN',          logo:'https://i.imgur.com/skAiUxg.png',  cat:'news',          url:'https://d25tgymtnqzu8s.cloudfront.net/event/smil:event1/chunklist_b2596000_slENG.m3u8' },
 ].map(ch => ({
   id:      'ph-local-' + ch.name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''),
   name:    ch.name,
