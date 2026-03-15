@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-  <!-- ── Primary SEO ─────────────────────────────────────────── -->
+
   <title>StreamBox — Free Live TV Worldwide</title>
   <meta name="description" content="Watch 8,000+ free live TV channels from every country. No subscription, no login, no ads. Stream news, sports, entertainment, kids, and more in your browser.">
   <meta name="keywords" content="free live TV, IPTV, live streaming, free TV online, watch TV online, live channels, news live, sports live, StreamBox">
@@ -12,40 +12,40 @@
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://tv.geanpaulo.com/">
 
-  <!-- ── Open Graph (Facebook / LinkedIn) ───────────────────── -->
+
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://tv.geanpaulo.com/">
   <meta property="og:title" content="StreamBox — Free Live TV Worldwide">
   <meta property="og:description" content="Watch 8,000+ free live TV channels from every country. No subscription, no login, no ads.">
-  <meta property="og:image" content="https://tv.geanpaulo.com/images/og-image.png">
+  <meta property="og:image" content="https://tv.geanpaulo.com/og-image.png">
   <meta property="og:site_name" content="StreamBox">
   <meta property="og:locale" content="en_US">
 
-  <!-- ── Twitter Card ────────────────────────────────────────── -->
+
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:url" content="https://tv.geanpaulo.com/">
   <meta name="twitter:title" content="StreamBox — Free Live TV Worldwide">
   <meta name="twitter:description" content="Watch 8,000+ free live TV channels from every country. No subscription, no login, no ads.">
-  <meta name="twitter:image" content="https://tv.geanpaulo.com/images/og-image.png">
+  <meta name="twitter:image" content="https://tv.geanpaulo.com/og-image.png">
 
-  <!-- ── PWA ─────────────────────────────────────────────────── -->
+
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#08090e">
-  <!-- iOS / Safari -->
+
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="StreamBox">
   <link rel="apple-touch-icon" href="/images/tvbox192.png">
   <link rel="apple-touch-icon" sizes="512x512" href="/images/tvbox512.png">
-  <!-- Favicon -->
+
   <link rel="icon" type="image/png" sizes="192x192" href="/images/tvbox192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/images/tvbox512.png">
-  <!-- Windows -->
+
   <meta name="application-name" content="StreamBox">
   <meta name="msapplication-TileColor" content="#08090e">
   <meta name="msapplication-TileImage" content="/images/tvbox192.png">
 
-  <!-- ── Structured Data (JSON-LD) ───────────────────────────── -->
+
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -79,7 +79,7 @@
 <body>
 <div id="app">
 
-  <!-- ── HEADER ─────────────────────────────────────────────── -->
+
   <header id="header">
     <button id="sidebar-toggle" aria-label="Toggle channel list">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
@@ -106,7 +106,7 @@
         <button class="search-clear" id="search-clear" aria-label="Clear search" hidden>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
-        <!-- AJAX-style results dropdown -->
+
         <div id="search-results-dropdown" role="listbox" aria-label="Search results" hidden></div>
       </div>
     </div>
@@ -134,10 +134,10 @@
     </div>
   </header>
 
-  <!-- ── SIDEBAR ────────────────────────────────────────────── -->
+
   <aside id="sidebar" role="complementary" aria-label="Channel list">
 
-    <!-- Search (visible inside sidebar on mobile) -->
+
     <div class="sidebar-section" id="sidebar-search-section">
       <div class="sidebar-search-wrap">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -145,7 +145,7 @@
       </div>
     </div>
 
-    <!-- Country selector -->
+
     <div class="sidebar-section" id="country-section">
       <div class="sidebar-label">Country</div>
       <div class="custom-select" id="country-dropdown" role="combobox" aria-expanded="false" aria-haspopup="listbox" tabindex="0">
@@ -158,7 +158,7 @@
       </div>
     </div>
 
-    <!-- Category tabs -->
+
     <div class="sidebar-section" id="cat-section">
       <div class="sidebar-label">Category</div>
       <div class="cat-tabs" id="cat-tabs">
@@ -166,22 +166,22 @@
       </div>
     </div>
 
-    <!-- Channel count -->
+
     <div class="channel-count" id="ch-count">Loading channels…</div>
 
-    <!-- Channel list -->
+
     <ul id="channel-list" role="listbox" aria-label="TV Channels"></ul>
   </aside>
 
   <div class="sidebar-overlay" id="sidebar-overlay"></div>
 
-  <!-- ── MAIN ───────────────────────────────────────────────── -->
+
   <main id="main">
 
     <div id="player-wrap">
       <video id="video-el" playsinline autoplay muted></video>
 
-      <!-- Idle -->
+
       <div class="idle-screen" id="idle-screen">
         <div class="idle-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -194,7 +194,7 @@
         <div class="idle-sub">Pick a country and select a channel to start watching</div>
       </div>
 
-      <!-- Now Playing badge (auto-fades) -->
+
       <div class="player-overlay">
         <div class="now-playing-badge" id="now-badge">
           <div class="now-logo" id="now-logo"></div>
@@ -203,19 +203,21 @@
             <div class="now-ch-name" id="now-name">—</div>
           </div>
         </div>
-        <!-- Mute hint -->
+        <button class="player-playpause-btn" id="playpause-btn" aria-label="Play/Pause" hidden>
+          <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </button>
         <div class="mute-hint" id="mute-hint" hidden>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
           <span>Tap to unmute</span>
         </div>
       </div>
 
-      <!-- Buffering -->
+
       <div class="buffer-overlay" id="buffer-overlay">
         <div class="spinner"></div>
       </div>
 
-      <!-- Error -->
+
       <div class="error-overlay" id="error-overlay">
         <div class="error-icon">📡</div>
         <div class="error-msg" id="error-msg">Unable to connect to this stream.</div>
@@ -223,7 +225,7 @@
       </div>
     </div>
 
-    <!-- Info bar (desktop) / Now-playing strip (mobile) -->
+
     <div id="info-bar">
       <div class="info-thumb" id="info-thumb">
         <span class="no-logo">📺</span>
@@ -248,7 +250,7 @@
       </div>
     </div>
 
-    <!-- Suggestions + inline search (mobile only) -->
+
     <div id="suggestions-panel">
       <div class="sug-header">
         <div class="sug-header-top">
@@ -284,7 +286,6 @@
   </main>
 </div>
 
-<!-- Mobile Bottom Nav -->
 <nav id="mobile-nav" aria-label="Mobile navigation">
   <button class="mob-tab active" id="mob-watch" aria-label="Watch">
     <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
@@ -310,20 +311,19 @@
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<!-- ── ABOUT MODAL ───────────────────────────────────────────── -->
 <div id="about-overlay" role="dialog" aria-modal="true" aria-label="About StreamBox">
   <div id="about-modal">
     <button id="about-close" aria-label="Close">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
 
-    <!-- App identity -->
+
     <div class="about-hero">
       <h1 class="about-title">StreamBox</h1>
       <p class="about-tagline">Free Live TV from every corner of the world</p>
     </div>
 
-    <!-- About the app -->
+
     <section class="about-section">
       <h2 class="about-section-title">About the App</h2>
       <p class="about-text">StreamBox is a free, open-source live TV player that aggregates thousands of publicly available IPTV streams from around the world. No subscriptions, no logins, no ads — just live television, anywhere, any time.</p>
@@ -332,7 +332,7 @@
 
     <div class="about-divider"></div>
 
-    <!-- Developer -->
+
     <section class="about-section">
       <h2 class="about-section-title">Developer</h2>
       <div class="about-dev">
@@ -347,7 +347,7 @@
 
     <div class="about-divider"></div>
 
-    <!-- Support / Donate -->
+
     <section class="about-section">
       <h2 class="about-section-title">Support the Project</h2>
       <p class="about-text">StreamBox is built and maintained in spare time, entirely for free. If it's useful to you, consider buying me a coffee — it helps keep the project alive.</p>
@@ -359,7 +359,7 @@
 
     <div class="about-divider"></div>
 
-    <!-- Bank Transfer -->
+
     <section class="about-section">
       <h2 class="about-section-title">Bank Transfer (Philippines)</h2>
       <p class="about-text">You can also send via GCash or bank transfer using the QR code or account details below.</p>
@@ -390,7 +390,7 @@
 
     <div class="about-divider"></div>
 
-    <!-- Disclaimer -->
+
     <section class="about-section">
       <h2 class="about-section-title">Disclaimer</h2>
       <p class="about-text">StreamBox aggregates publicly available IPTV streams and does not host, own, or control any of the content. Some channels may be unavailable, geo-restricted, or offline at any given time — this is beyond our control and depends entirely on the upstream stream provider.</p>
@@ -399,7 +399,7 @@
 
     <div class="about-divider"></div>
 
-    <!-- Stats / version -->
+
     <div class="about-meta">
       <span id="about-channel-count">— channels available</span>
       <span class="about-dot">·</span>
@@ -410,7 +410,6 @@
   </div>
 </div>
 
-<!-- ── HELP MODAL ────────────────────────────────────────────── -->
 <div id="help-overlay" role="dialog" aria-modal="true" aria-label="Help">
   <div id="help-modal">
     <button id="help-close" aria-label="Close">
@@ -491,6 +490,7 @@
       <div class="help-controls">
         <div class="help-ctrl"><span class="help-ctrl-key">M</span><span>Toggle mute</span></div>
         <div class="help-ctrl"><span class="help-ctrl-key">F</span><span>Toggle fullscreen</span></div>
+        <div class="help-ctrl"><span class="help-ctrl-key">Space</span><span>Play / Pause</span></div>
         <div class="help-ctrl"><span class="help-ctrl-key">B</span><span>Toggle sidebar</span></div>
         <div class="help-ctrl"><span class="help-ctrl-key">/</span><span>Focus search</span></div>
         <div class="help-ctrl"><span class="help-ctrl-key">Esc</span><span>Close dropdown / modal</span></div>
