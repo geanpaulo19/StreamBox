@@ -2,35 +2,51 @@
   "name": "StreamBox — Free Live TV Worldwide",
   "short_name": "StreamBox",
   "description": "Watch 8,000+ free live TV channels from every country. No subscription, no login, no ads.",
-  "start_url": "/",
+  "id": "streambox-tv-geanpaulo",
+  "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "any",
   "background_color": "#08090e",
   "theme_color": "#08090e",
   "categories": ["entertainment", "utilities"],
-  "lang": "en",
+  "lang": "en-US",
+  "dir": "ltr",
+  "prefer_related_applications": false,
   "icons": [
     {
-      "src": "images/tvbox192.png",
+      "src": "/images/tvbox192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "images/tvbox512.png",
+      "src": "/images/tvbox192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/images/tvbox512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/images/tvbox512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
-  "screenshots": [
+  "shortcuts": [
     {
-      "src": "images/tvbox512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "StreamBox player interface"
+      "name": "Browse Channels",
+      "short_name": "Channels",
+      "description": "Browse all live TV channels",
+      "url": "/?shortcut=channels",
+      "icons": [{ "src": "/images/tvbox192.png", "sizes": "192x192" }]
     }
   ]
 }
