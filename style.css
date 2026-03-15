@@ -1181,9 +1181,10 @@ input[type="search"]::-webkit-search-decoration { display: none; -webkit-appeara
 .donate-bank-acct {
   font-family: var(--mono); font-size: .84rem;
   color: var(--accent); letter-spacing: .05em;
+  word-break: break-all;
 }
 .donate-acct-row {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
 }
 .donate-copy-btn {
   display: inline-flex; align-items: center; gap: 5px;
@@ -1191,6 +1192,7 @@ input[type="search"]::-webkit-search-decoration { display: none; -webkit-appeara
   border-radius: var(--r-sm); padding: 3px 9px;
   font-family: var(--font); font-size: .68rem; font-weight: 600;
   color: var(--accent); cursor: pointer; white-space: nowrap;
+  flex-shrink: 0;
   transition: background .15s;
 }
 .donate-copy-btn:hover { background: rgba(59,130,246,.2); }
