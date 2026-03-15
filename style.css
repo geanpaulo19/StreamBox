@@ -1157,3 +1157,44 @@ input[type="search"]::-webkit-search-decoration { display: none; -webkit-appeara
   .install-banner-text { flex: 1 100%; }
 }
 
+
+/* ── Donate QR ───────────────────────────────────────────────── */
+.donate-qr-wrap {
+  display: flex; align-items: center; gap: 16px;
+  margin-top: 16px;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 16px;
+}
+.donate-qr {
+  width: 150px; height: 150px; border-radius: var(--r-sm);
+  object-fit: cover; flex-shrink: 0;
+}
+.donate-bank { display: flex; flex-direction: column; gap: 10px; flex: 1; min-width: 0; }
+.donate-bank-row { display: flex; flex-direction: column; gap: 2px; }
+.donate-bank-label {
+  font-size: .58rem; font-weight: 600; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--txt-3);
+}
+.donate-bank-value {
+  font-size: .8rem; font-weight: 500; color: var(--txt-1);
+}
+.donate-bank-acct {
+  font-family: var(--mono); font-size: .84rem;
+  color: var(--accent); letter-spacing: .05em;
+}
+.donate-acct-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.donate-copy-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--accent-soft); border: 1px solid var(--accent-glow);
+  border-radius: var(--r-sm); padding: 3px 9px;
+  font-family: var(--font); font-size: .68rem; font-weight: 600;
+  color: var(--accent); cursor: pointer; white-space: nowrap;
+  transition: background .15s;
+}
+.donate-copy-btn:hover { background: rgba(59,130,246,.2); }
+.donate-copy-btn.copied {
+  background: rgba(34,197,94,.12); border-color: rgba(34,197,94,.3);
+  color: #22c55e;
+}
