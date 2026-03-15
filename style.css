@@ -659,7 +659,7 @@ input[type="search"]::-webkit-search-decoration { display: none; -webkit-appeara
    ============================================================ */
 #mobile-nav {
   display: none; position: fixed; bottom: 0; left: 0; right: 0;
-  height: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px));
+  height: auto;
   padding-bottom: env(safe-area-inset-bottom, 0px);
   background: rgba(8,9,14,.97);
   backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
@@ -668,6 +668,7 @@ input[type="search"]::-webkit-search-decoration { display: none; -webkit-appeara
 }
 .mob-tab {
   flex: 1;
+  height: var(--mobile-nav-h);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
   font-size: .58rem; font-weight: 600; letter-spacing: .04em;
   color: var(--txt-3); padding: 0;
@@ -1156,3 +1157,4 @@ input[type="search"]::-webkit-search-decoration { display: none; -webkit-appeara
   }
   .install-banner-text { flex: 1 100%; }
 }
+
