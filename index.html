@@ -114,6 +114,13 @@
           <line x1="12" y1="16" x2="12.01" y2="16"/>
         </svg>
       </button>
+      <button class="about-btn" id="help-btn" aria-label="Help" title="Help">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+      </button>
     </div>
   </header>
 
@@ -285,6 +292,10 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
     About
   </button>
+  <button class="mob-tab" id="mob-help" aria-label="Help">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    Help
+  </button>
 </nav>
 
 <div id="toast" role="status" aria-live="polite"></div>
@@ -355,6 +366,105 @@
       <span class="about-dot">·</span>
       <span>Open Source</span>
     </div>
+  </div>
+</div>
+
+<!-- ── HELP MODAL ────────────────────────────────────────────── -->
+<div id="help-overlay" role="dialog" aria-modal="true" aria-label="Help">
+  <div id="help-modal">
+    <button id="help-close" aria-label="Close">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+
+    <div class="about-hero">
+      <h1 class="about-title">How to Use StreamBox</h1>
+      <p class="about-tagline">Everything you need to know to get started</p>
+    </div>
+
+    <section class="about-section">
+      <h2 class="about-section-title">Getting Started</h2>
+      <div class="help-steps">
+        <div class="help-step">
+          <div class="help-step-num">1</div>
+          <div class="help-step-body">
+            <div class="help-step-title">Pick a Country</div>
+            <p class="help-step-desc">Use the <strong>Country</strong> dropdown in the sidebar to filter channels by country, or leave it on <em>All Countries</em> to browse everything.</p>
+          </div>
+        </div>
+        <div class="help-step">
+          <div class="help-step-num">2</div>
+          <div class="help-step-body">
+            <div class="help-step-title">Choose a Category</div>
+            <p class="help-step-desc">Tap a category tab — <em>General, News, Entertainment, Sports, Kids</em> — to narrow down the channel list.</p>
+          </div>
+        </div>
+        <div class="help-step">
+          <div class="help-step-num">3</div>
+          <div class="help-step-body">
+            <div class="help-step-title">Select a Channel</div>
+            <p class="help-step-desc">Tap any channel in the list to start streaming. The player will load and begin playing automatically.</p>
+          </div>
+        </div>
+        <div class="help-step">
+          <div class="help-step-num">4</div>
+          <div class="help-step-body">
+            <div class="help-step-title">Unmute if Needed</div>
+            <p class="help-step-desc">If the stream starts muted (e.g. on page reload), tap the <strong>🔇 Tap to unmute</strong> banner over the player, or use the mute button in the controls.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="about-divider"></div>
+
+    <section class="about-section">
+      <h2 class="about-section-title">Search</h2>
+      <p class="about-text">Use the search bar at the top to find any channel by name or country. Results appear instantly as you type — click or tap a result to play it directly.</p>
+      <p class="about-text">On mobile, tap the <strong>Search</strong> tab at the bottom to open the channel list with the search bar focused.</p>
+    </section>
+
+    <div class="about-divider"></div>
+
+    <section class="about-section">
+      <h2 class="about-section-title">Favourites</h2>
+      <p class="about-text">Tap the <strong>♡</strong> heart icon on any channel row to save it. Access all your saved channels instantly from the <strong>Favs</strong> tab in the sidebar.</p>
+      <p class="about-text">Favourites are saved to your browser and persist across visits.</p>
+    </section>
+
+    <div class="about-divider"></div>
+
+    <section class="about-section">
+      <h2 class="about-section-title">Player Controls</h2>
+      <div class="help-controls">
+        <div class="help-ctrl"><span class="help-ctrl-key">🔇 / 🔊</span><span>Mute / Unmute</span></div>
+        <div class="help-ctrl"><span class="help-ctrl-key">⛶</span><span>Fullscreen</span></div>
+        <div class="help-ctrl"><span class="help-ctrl-key">☰</span><span>Toggle sidebar (desktop)</span></div>
+        <div class="help-ctrl"><span class="help-ctrl-key">Retry</span><span>Reload a failed stream</span></div>
+      </div>
+    </section>
+
+    <div class="about-divider"></div>
+
+    <section class="about-section">
+      <h2 class="about-section-title">Keyboard Shortcuts</h2>
+      <div class="help-controls">
+        <div class="help-ctrl"><span class="help-ctrl-key">M</span><span>Toggle mute</span></div>
+        <div class="help-ctrl"><span class="help-ctrl-key">F</span><span>Toggle fullscreen</span></div>
+        <div class="help-ctrl"><span class="help-ctrl-key">B</span><span>Toggle sidebar</span></div>
+        <div class="help-ctrl"><span class="help-ctrl-key">/</span><span>Focus search</span></div>
+        <div class="help-ctrl"><span class="help-ctrl-key">Esc</span><span>Close dropdown / modal</span></div>
+      </div>
+    </section>
+
+    <div class="about-divider"></div>
+
+    <section class="about-section">
+      <h2 class="about-section-title">Troubleshooting</h2>
+      <p class="about-text"><strong>Channel won't play?</strong> Some streams may be offline or geo-restricted. Tap <em>Try Again</em> or pick a different channel.</p>
+      <p class="about-text"><strong>Buffering?</strong> This usually means the stream source is slow or your connection is unstable. Try another channel and come back later.</p>
+      <p class="about-text"><strong>No sound?</strong> Tap the mute button or the <em>Tap to unmute</em> banner over the player.</p>
+    </section>
+
   </div>
 </div>
 
