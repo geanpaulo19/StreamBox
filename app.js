@@ -559,9 +559,19 @@ function buildItem(ch, i) {
     e.stopPropagation();
     toggleFav(ch.id);
   });
+  favBtn.addEventListener('touchend', e => {
+    e.stopPropagation();
+    if (e.cancelable) e.preventDefault();
+    toggleFav(ch.id);
+  }, { passive: false });
 
   li.append(wrap, info, dot, favBtn);
-  li.addEventListener('click',   () => switchTo(ch));
+  li.addEventListener('click', () => switchTo(ch));
+  li.addEventListener('touchend', e => {
+    /* Prevent the delayed click event that causes the double-tap issue on mobile */
+    if (e.cancelable) e.preventDefault();
+    switchTo(ch);
+  }, { passive: false });
   li.addEventListener('keydown', e  => { if (e.key === 'Enter') switchTo(ch); });
   return li;
 }
@@ -1238,8 +1248,21 @@ $('mob-search').addEventListener('click',()=>{
 });
 
 /* ============================================================
-   ABOUT MODAL
+   HELP MODAL
    ============================================================ */
+const helpOverlay = $('help-overlay');
+
+function openHelp()  { helpOverlay.classList.add('open');    document.body.style.overflow = 'hidden'; }
+function closeHelp() { helpOverlay.classList.remove('open'); document.body.style.overflow = ''; }
+
+$('help-btn').addEventListener('click',  openHelp);
+$('mob-help').addEventListener('click',  openHelp);
+$('help-close').addEventListener('click', closeHelp);
+helpOverlay.addEventListener('click', e => { if (e.target === helpOverlay) closeHelp(); });
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && helpOverlay.classList.contains('open')) closeHelp();
+});
 const aboutOverlay = $('about-overlay');
 
 function openAbout() {
