@@ -19,8 +19,6 @@ function corsProxy(url) {
   } catch { return url; }
 }
 
-
-
 /* ─── State ───────────────────────────────────────────────────── */
 let allChannels    = [];   // full merged list (all countries)
 let filteredChs    = [];   // current view after country + cat + search
@@ -1272,10 +1270,11 @@ function resumeAfterFullscreen() {
 document.addEventListener('fullscreenchange',       () => { if (!document.fullscreenElement)       onFullscreenExit(); });
 document.addEventListener('webkitfullscreenchange', () => { if (!document.webkitFullscreenElement) onFullscreenExit(); });
 video.addEventListener('webkitendfullscreen',       () => onFullscreenExit());
-video.addEventListener('playing',    () => showBuf(false));
-video.addEventListener('canplay',    () => showBuf(false));
-video.addEventListener('timeupdate', () => showBuf(false));
-video.addEventListener('stalled',    () => showBuf(true));
+video.addEventListener('playing',    () => { showBuf(false); });
+video.addEventListener('canplay',    () => { showBuf(false); });
+video.addEventListener('waiting',    () => { showBuf(true);  });   /* proper buffering event */
+video.addEventListener('stalled',    () => { if (!video.paused) showBuf(true); }); /* ignore stalled-while-paused */
+video.addEventListener('timeupdate', () => { if (bufferOvl.classList.contains('show')) showBuf(false); }); /* only clear if spinner is actually showing */
 video.addEventListener('error',      () => { showBuf(false); if(currentChannel) showErr('Could not load stream.'); });
 
 function showErr(msg) {
@@ -1391,34 +1390,59 @@ function toggleFullscreen() {
   ).call(w);
 }
 
-/* ── Buffer overlay — with stall timeout so spinner doesn't stick */
-let stallTimer = null;
+/* ── Buffer overlay — with stall timeout so spinner doesn't stick ──
+   Key rules:
+   • Never show the spinner when the video is intentionally paused —
+     browsers fire 'stalled' a few seconds after pause as a network
+     hint, which was triggering infinite buffering.
+   • Debounce syncPlayPauseBtn so timeupdate (fires ~4×/s) doesn't
+     cause constant innerHTML thrashing and repaints (flicker).        */
+let stallTimer      = null;
+let syncBtnPending  = false;
 
 function showBuf(v) {
   clearTimeout(stallTimer);
+  /* Never show spinner while intentionally paused */
+  if (v && video.paused) return;
   if (v) {
-    stallTimer = setTimeout(() => { bufferOvl.classList.add('show'); syncPlayPauseBtn(); }, 600);
+    stallTimer = setTimeout(() => {
+      if (video.paused) return;   /* double-check — may have paused during delay */
+      bufferOvl.classList.add('show');
+      scheduleSyncBtn();
+    }, 600);
   } else {
     bufferOvl.classList.remove('show');
-    syncPlayPauseBtn();
+    scheduleSyncBtn();
   }
+}
+
+/* Rate-limit syncPlayPauseBtn to one call per animation frame */
+function scheduleSyncBtn() {
+  if (syncBtnPending) return;
+  syncBtnPending = true;
+  requestAnimationFrame(() => { syncBtnPending = false; syncPlayPauseBtn(); });
 }
 
 let isPlaying = false;
 let pausedAt  = null;
 
+/* Pre-built SVGs so we never recreate them */
+const PLAY_SVG  = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
+const PAUSE_SVG = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><line x1="6" y1="4" x2="6" y2="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="18" y1="4" x2="18" y2="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>`;
+let _lastBtnState = null;  /* track last rendered state to skip no-op updates */
+
 function syncPlayPauseBtn() {
-  const PLAY_SVG  = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
-  const PAUSE_SVG = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><line x1="6" y1="4" x2="6" y2="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="18" y1="4" x2="18" y2="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>`;
   const btn = $('playpause-btn'); if (!btn) return;
   const hasError  = errorOvl.classList.contains('show');
   const isIdle    = !idleScreen.classList.contains('hidden');
   const isLoading = bufferOvl.classList.contains('show');
-  btn.innerHTML = isPlaying
-    ? `${PAUSE_SVG} Pause`
-    : `${PLAY_SVG} Play`;
+  const shouldHide = !currentChannel || hasError || isIdle || isLoading;
+  const state = `${isPlaying}|${shouldHide}`;
+  if (state === _lastBtnState) return;   /* nothing changed — skip DOM write */
+  _lastBtnState = state;
+  btn.innerHTML = isPlaying ? `${PAUSE_SVG} Pause` : `${PLAY_SVG} Play`;
   btn.setAttribute('aria-label', isPlaying ? 'Pause' : 'Play');
-  btn.hidden = !currentChannel || hasError || isIdle || isLoading;
+  btn.hidden = shouldHide;
   btn.style.opacity = isPlaying ? '' : '1';
 }
 
@@ -1461,8 +1485,17 @@ function togglePlayPause() {
   }
 }
 
-video.addEventListener('play',  () => { isPlaying = true;  syncPlayPauseBtn(); showPlayerControls(); });
-video.addEventListener('pause', () => { isPlaying = false; syncPlayPauseBtn(); clearTimeout(playerIdleTimer); playerWrap.classList.add('controls-visible'); });
+video.addEventListener('play',  () => { isPlaying = true;  _lastBtnState = null; scheduleSyncBtn(); showPlayerControls(); });
+video.addEventListener('pause', () => {
+  isPlaying = false;
+  /* Clear any pending stall timer and hide spinner — pausing is intentional */
+  clearTimeout(stallTimer);
+  bufferOvl.classList.remove('show');
+  _lastBtnState = null;
+  scheduleSyncBtn();
+  clearTimeout(playerIdleTimer);
+  playerWrap.classList.add('controls-visible');
+});
 
 $('mute-btn').addEventListener('click', toggleMute);
 $('fullscreen-btn').addEventListener('click', toggleFullscreen);
