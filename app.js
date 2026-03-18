@@ -142,7 +142,13 @@ function parseM3U(text) {
 function toSlug(s){return s.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');}
 
 const PH_CHANNELS = [
-  { name:'GMA 7',              logo:'https://upload.wikimedia.org/wikipedia/en/thumb/9/93/GMA_Network_logo.svg/1200px-GMA_Network_logo.svg.png', cat:'entertainment', url:'https://gsattv.akamaized.net/live/media0/gma7/Fairplay/gma7.m3u8' },
+  { name:'GMA 7',              logo:'https://i.imgur.com/Cu1tAY8.png',        cat:'entertainment', url:'http://136.158.97.2:6610/001/2/ch00000090990000001093/manifest.mpd?AuthInfo=v87HD9rEhwHiAdYyrP20Tg5pgSMSITY%2FHYvvCWJRp%2BoLvT86fM74ocVChyFS93HUytokK1MIobcue1ImXa0ZEA%3D%3D&version=v1.0&BreakPoint=0&virtualDomain=001.live_hls.zte.com&programid=ch00000000000000001214&contentid=ch00000000000000001214&videoid=ch00000090990000001093&recommendtype=0&userid=1084724632836&boid=001&stbid=02%3A00%3A00%3A00%3A00%3A00&terminalflag=1&profilecode=&usersessionid=FGE3OISG4KGXXX&NeedJITP=1&JITPMediaType=DASH&JITPDRMType=NO' },
+  { name:'GTV',                logo:'https://i.imgur.com/geuq18u.png',        cat:'entertainment', url:'http://136.239.159.18:6610/001/2/ch00000090990000001143/manifest.mpd?AuthInfo=v87HD9rEhwHiAdYyrP20Tg5pgSMSITY%2FHYvvCWJRp%2BrwAtJC%2BsmBQ5ARU076BdkhytokK1MIobcue1ImXa0ZEA%3D%3D&version=v1.0&BreakPoint=0&virtualDomain=001.live_hls.zte.com&programid=ch00000000000000001313&contentid=ch00000000000000001313&videoid=ch00000090990000001143&recommendtype=0&userid=1590268675436&boid=001&stbid=02%3A00%3A00%3A00%3A00%3A00&terminalflag=1&profilecode=&usersessionid=AAIUZ2MAG7XXXX&NeedJITP=1&JITPMediaType=DASH&JITPDRMType=NO' },
+  { name:'A2Z',                logo:'https://static.wikia.nocookie.net/russel/images/8/85/A2Z_Channel_11_without_Channel_11_3D_Logo_2020.png/revision/latest?cb=20231101144828', cat:'entertainment', url:'https://qp-pldt-live-bpk-02-prod.akamaized.net/bpk-tv/cg_a2z/default/index.mpd' },
+  { name:'Kapamilya Channel HD',logo:'https://i.imgur.com/WcYS3S3.png',       cat:'entertainment', url:'http://136.239.173.2:6610/001/2/ch00000090990000001286/manifest.mpd?AuthInfo=v87HD9rEhwHiAdYyrP20Tg5pgSMSITY%2FHYvvCWJRp%2Bqw65FFCygtQMRRIUPF0xuXytokK1MIobcue1ImXa0ZEA%3D%3D&version=v1.0&BreakPoint=0&virtualDomain=001.live_hls.zte.com&programid=ch00000000000000001694&contentid=ch00000000000000001694&videoid=ch00000090990000001286&recommendtype=0&userid=1004802317138&boid=001&stbid=02%3A00%3A00%3A00%3A00%3A00&terminalflag=1&profilecode=&usersessionid=CCJLYZ04O9IXXX&NeedJITP=1&JITPMediaType=DASH&JITPDRMType=NO' },
+  { name:'CineMo!',             logo:'https://i.imgur.com/2Jn7QHG.png',        cat:'entertainment', url:'https://live-faws.akamaized.net/out/v1/3a895f368f4a467c9bca0962559efc19/index.mpd' },
+  { name:'ANC',                 logo:'https://i.imgur.com/Bcu69bU.png',        cat:'news',          url:'https://cdn-ue1-prod.tsv2.amagi.tv/linear/amg01006-abs-cbn-anc-global-dash-abscbnono/index.mpd' },
+  { name:'ALL TV',              logo:'https://brandlogo.org/wp-content/uploads/2024/05/All-TV-Logo-300x300.png.webp', cat:'entertainment', url:'http://136.239.158.10:6610/001/2/ch00000090990000001179/manifest.mpd?AuthInfo=v87HD9rEhwHiAdYyrP20Tg5pgSMSITY%2FHYvvCWJRp%2Bow35sHUcBhGBpxqddBGYEnytoKK1MIobcue1ImXa0ZEA%3D%3D&version=v1.0&BreakPoint=0&virtualDomain=001.live_hls.zte.com&programid=ch00000000000000001415&contentid=ch00000000000000001415&videoid=ch00000090990000001179&recommendtype=0&userid=1205050496206&boid=001&stbid=02%3A00%3A00%3A00%3A00%3A00&terminalflag=1&profilecode=&usersessionid=02WMA0HI2O3AXX&NeedJITP=1&JITPMediaType=DASH&JITPDRMType=NO' },
   { name:'Star Movies',        logo:'https://upload.wikimedia.org/wikipedia/en/thumb/4/4f/Star_Movies_logo.svg/1200px-Star_Movies_logo.svg.png', cat:'entertainment', url:'https://converse.nathcreqtives.com/channels/starmovies/playlist.m3u8?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJNb29uIiwiaWF0IjoxNzcyNTg1NDEyLCJleHAiOjE3NzM4ODE0MTIsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3Mzg4MTQxMn0.pWBHcolaeZXd-5DAkMobbJn5DbFoSTDEWYuQn0LC5U4' },
   { name:'Star Movies Select', logo:'https://upload.wikimedia.org/wikipedia/en/thumb/4/4f/Star_Movies_logo.svg/1200px-Star_Movies_logo.svg.png', cat:'entertainment', url:'https://converse.nathcreqtives.com/channels/smselect/playlist.m3u8?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJNb29uIiwiaWF0IjoxNzcyNTg1NDEyLCJleHAiOjE3NzM4ODE0MTIsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3Mzg4MTQxMn0.pWBHcolaeZXd-5DAkMobbJn5DbFoSTDEWYuQn0LC5U4' },
   { name:'Heart of Asia',      logo:null, cat:'entertainment', url:'https://hls.nathcreqtives.com/playlist.m3u8?id=1&token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJNb29uIiwiaWF0IjoxNzcyNTg1NDEyLCJleHAiOjE3NzM4ODE0MTIsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3Mzg4MTQxMn0.pWBHcolaeZXd-5DAkMobbJn5DbFoSTDEWYuQn0LC5U4' },
@@ -1272,9 +1278,9 @@ document.addEventListener('webkitfullscreenchange', () => { if (!document.webkit
 video.addEventListener('webkitendfullscreen',       () => onFullscreenExit());
 video.addEventListener('playing',    () => { showBuf(false); });
 video.addEventListener('canplay',    () => { showBuf(false); });
-video.addEventListener('waiting',    () => { showBuf(true);  });   /* proper buffering event */
-video.addEventListener('stalled',    () => { if (!video.paused) showBuf(true); }); /* ignore stalled-while-paused */
-video.addEventListener('timeupdate', () => { if (bufferOvl.classList.contains('show')) showBuf(false); }); /* only clear if spinner is actually showing */
+video.addEventListener('waiting',    () => { showBuf(true);  });
+video.addEventListener('stalled',    () => { if (!video.paused) showBuf(true); });
+video.addEventListener('timeupdate', () => { if (bufferOvl.classList.contains('show')) showBuf(false); });
 video.addEventListener('error',      () => { showBuf(false); if(currentChannel) showErr('Could not load stream.'); });
 
 function showErr(msg) {
@@ -1406,7 +1412,7 @@ function showBuf(v) {
   if (v && video.paused) return;
   if (v) {
     stallTimer = setTimeout(() => {
-      if (video.paused) return;   /* double-check — may have paused during delay */
+      if (video.paused) return;
       bufferOvl.classList.add('show');
       scheduleSyncBtn();
     }, 600);
@@ -1429,7 +1435,7 @@ let pausedAt  = null;
 /* Pre-built SVGs so we never recreate them */
 const PLAY_SVG  = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
 const PAUSE_SVG = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><line x1="6" y1="4" x2="6" y2="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="18" y1="4" x2="18" y2="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>`;
-let _lastBtnState = null;  /* track last rendered state to skip no-op updates */
+let _lastBtnState = null;
 
 function syncPlayPauseBtn() {
   const btn = $('playpause-btn'); if (!btn) return;
@@ -1438,7 +1444,7 @@ function syncPlayPauseBtn() {
   const isLoading = bufferOvl.classList.contains('show');
   const shouldHide = !currentChannel || hasError || isIdle || isLoading;
   const state = `${isPlaying}|${shouldHide}`;
-  if (state === _lastBtnState) return;   /* nothing changed — skip DOM write */
+  if (state === _lastBtnState) return;
   _lastBtnState = state;
   btn.innerHTML = isPlaying ? `${PAUSE_SVG} Pause` : `${PLAY_SVG} Play`;
   btn.setAttribute('aria-label', isPlaying ? 'Pause' : 'Play');
@@ -1488,7 +1494,6 @@ function togglePlayPause() {
 video.addEventListener('play',  () => { isPlaying = true;  _lastBtnState = null; scheduleSyncBtn(); showPlayerControls(); });
 video.addEventListener('pause', () => {
   isPlaying = false;
-  /* Clear any pending stall timer and hide spinner — pausing is intentional */
   clearTimeout(stallTimer);
   bufferOvl.classList.remove('show');
   _lastBtnState = null;
