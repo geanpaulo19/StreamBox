@@ -1008,7 +1008,9 @@ function switchTo(ch) {
   errorOvl.classList.remove('show');
   hideBadge();
   syncPlayPauseBtn();
-  showBuf(true);
+  showBuf(false);
+  stopStallDetector();
+  bufferOvl.classList.add('show');
   updateInfoBar(ch);
   closeSidebar();
 
@@ -1038,12 +1040,8 @@ function playHls(ch) {
       hls.detachMedia(); hls.loadSource(ch.url); hls.attachMedia(video);
     } else {
       hls = new Hls({
-        enableWorker:      true,
-        lowLatencyMode:    false,
-        backBufferLength:  30,
-        maxBufferLength:   60,
-        maxMaxBufferLength: 120,
-        maxBufferHole:     0.5,
+        enableWorker: true, lowLatencyMode: false,
+        backBufferLength: 30, maxBufferLength: 60, maxMaxBufferLength: 120, maxBufferHole: 0.5,
       });
       hls.loadSource(ch.url); hls.attachMedia(video); bindHlsEvents();
     }
@@ -1073,7 +1071,7 @@ function playDash(ch) {
   dashPlayer.updateSettings({
     streaming: {
       lowLatencyEnabled: false,
-      delay: { liveDelay: 8, liveCatchUpMinDrift: 0.5, liveCatchUpPlaybackRate: 0.5 },
+      delay: { liveDelay: 8 },
       buffer: { fastSwitchEnabled: true, stableBufferTime: 12, stallThreshold: 0.5 },
       abr: { initialBitrate: { video: 2000 } },
     },
@@ -1107,9 +1105,9 @@ function playDash(ch) {
     showBuf(false);
   });
 
-  dashPlayer.on(dashjs.MediaPlayer.events.PLAYBACK_WAITING, () => showBuf(true));
+  /* PLAYBACK_WAITING fires during normal ABR switches — don't show spinner for it.
+     The stall detector below handles genuine buffering. */
   dashPlayer.on(dashjs.MediaPlayer.events.PLAYBACK_PLAYING, () => showBuf(false));
-  dashPlayer.on(dashjs.MediaPlayer.events.PLAYBACK_PROGRESS, () => { if (bufferOvl.classList.contains('show')) showBuf(false); });
 }
 
 /* Convert hex string to base64url (for ClearKey) */
@@ -1261,12 +1259,8 @@ function resumeAfterFullscreen() {
 
   if (Hls.isSupported()) {
     hls = new Hls({
-      enableWorker:      true,
-      lowLatencyMode:    false,
-      backBufferLength:  30,
-      maxBufferLength:   60,
-      maxMaxBufferLength: 120,
-      maxBufferHole:     0.5,
+      enableWorker: true, lowLatencyMode: false,
+      backBufferLength: 30, maxBufferLength: 60, maxMaxBufferLength: 120, maxBufferHole: 0.5,
     });
     hls.loadSource(currentChannel.url);
     hls.attachMedia(video);
@@ -1281,12 +1275,11 @@ function resumeAfterFullscreen() {
 document.addEventListener('fullscreenchange',       () => { if (!document.fullscreenElement)       onFullscreenExit(); });
 document.addEventListener('webkitfullscreenchange', () => { if (!document.webkitFullscreenElement) onFullscreenExit(); });
 video.addEventListener('webkitendfullscreen',       () => onFullscreenExit());
-video.addEventListener('playing',    () => { showBuf(false); });
+/* 'waiting' and 'stalled' fire too eagerly on mobile (during normal
+   ABR switches). We use the stall detector (currentTime polling) instead. */
+video.addEventListener('playing',    () => { showBuf(false); startStallDetector(); });
 video.addEventListener('canplay',    () => { showBuf(false); });
-video.addEventListener('waiting',    () => { showBuf(true);  });
-video.addEventListener('stalled',    () => { if (!video.paused) showBuf(true); });
-video.addEventListener('timeupdate', () => { if (bufferOvl.classList.contains('show')) showBuf(false); });
-video.addEventListener('error',      () => { showBuf(false); if(currentChannel) showErr('Could not load stream.'); });
+video.addEventListener('error',      () => { showBuf(false); stopStallDetector(); if(currentChannel) showErr('Could not load stream.'); });
 
 function showErr(msg) {
   errorMsg.textContent = msg;
@@ -1401,12 +1394,48 @@ function toggleFullscreen() {
   ).call(w);
 }
 
-/* ── Buffer overlay ─────────────────────────────────────────────
-   1200ms debounce hides brief ABR/segment stalls.
-   Never show spinner while intentionally paused.
-   Rate-limit syncPlayPauseBtn via rAF to stop timeupdate flicker. */
+/* ── Buffer overlay ──────────────────────────────────────────────
+   showBuf(true) only shows the spinner after 2s of genuine stall.
+   We use a stall detector based on currentTime not advancing rather
+   than relying on 'waiting'/'stalled' events which fire too eagerly
+   on mobile (during ABR switches, segment fetches, etc).            */
 let stallTimer     = null;
 let syncBtnPending = false;
+let _lastTime      = -1;
+let _stallStart    = 0;
+let _stallRaf      = null;
+
+function startStallDetector() {
+  if (_stallRaf) return;
+  _lastTime   = video.currentTime;
+  _stallStart = 0;
+  function tick() {
+    _stallRaf = requestAnimationFrame(tick);
+    if (video.paused || video.ended || !currentChannel) {
+      _stallStart = 0; _lastTime = video.currentTime; return;
+    }
+    if (video.currentTime !== _lastTime) {
+      /* time advancing — clear spinner and reset */
+      _lastTime   = video.currentTime;
+      _stallStart = 0;
+      if (bufferOvl.classList.contains('show')) showBuf(false);
+      return;
+    }
+    /* time not advancing */
+    if (_stallStart === 0) _stallStart = Date.now();
+    const stalledMs = Date.now() - _stallStart;
+    if (stalledMs > 2000 && !bufferOvl.classList.contains('show')) {
+      bufferOvl.classList.add('show');
+      scheduleSyncBtn();
+    }
+  }
+  _stallRaf = requestAnimationFrame(tick);
+}
+
+function stopStallDetector() {
+  if (_stallRaf) { cancelAnimationFrame(_stallRaf); _stallRaf = null; }
+  _stallStart = 0;
+}
 
 function showBuf(v) {
   clearTimeout(stallTimer);
@@ -1416,7 +1445,7 @@ function showBuf(v) {
       if (video.paused) return;
       bufferOvl.classList.add('show');
       scheduleSyncBtn();
-    }, 1200);
+    }, 2000);
   } else {
     bufferOvl.classList.remove('show');
     scheduleSyncBtn();
@@ -1490,10 +1519,11 @@ function togglePlayPause() {
   }
 }
 
-video.addEventListener('play',  () => { isPlaying = true;  _lastBtnState = null; scheduleSyncBtn(); showPlayerControls(); });
+video.addEventListener('play',  () => { isPlaying = true;  _lastBtnState = null; scheduleSyncBtn(); showPlayerControls(); startStallDetector(); });
 video.addEventListener('pause', () => {
   isPlaying = false;
   clearTimeout(stallTimer);
+  stopStallDetector();
   bufferOvl.classList.remove('show');
   _lastBtnState = null;
   scheduleSyncBtn();
@@ -1602,34 +1632,27 @@ document.addEventListener('keydown',e=>{
 });
 
 
-/* ── Page visibility — reload stream when returning from background ──
-   On mobile, browsers suspend video when the app is backgrounded or
-   the screen locks. On return the buffer is cold and stale, causing
-   persistent buffering. We detect this and reload the stream cleanly. */
-let hiddenAt = null;
+/* ── Mobile background recovery ───────────────────────────────── */
+let _hiddenAt = null;
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
-    hiddenAt = Date.now();
-    /* Clear stall timer while hidden — no point showing spinner */
+    _hiddenAt = Date.now();
+    stopStallDetector();
     clearTimeout(stallTimer);
     bufferOvl.classList.remove('show');
+    return;
+  }
+  if (!currentChannel) { _hiddenAt = null; return; }
+  const away = _hiddenAt ? Date.now() - _hiddenAt : 0;
+  _hiddenAt = null;
+  if (away > 30000) {
+    switchTo(currentChannel);
+  } else if (away > 5000) {
+    video.play().catch(() => {});
+    const t = setTimeout(() => { if (video.paused || video.readyState < 3) switchTo(currentChannel); }, 3000);
+    video.addEventListener('playing', () => clearTimeout(t), { once: true });
   } else {
-    if (!currentChannel) return;
-    const awayMs = hiddenAt ? Date.now() - hiddenAt : 0;
-    hiddenAt = null;
-    /* If away for more than 30s, reload the stream to snap to live edge */
-    if (awayMs > 30000) {
-      switchTo(currentChannel);
-    } else if (awayMs > 5000) {
-      /* Short absence — just try to resume; reload if stalled after 3s */
-      video.play().catch(() => {});
-      const recoverTimer = setTimeout(() => {
-        if (video.paused || video.readyState < 3) switchTo(currentChannel);
-      }, 3000);
-      video.addEventListener('playing', () => clearTimeout(recoverTimer), { once: true });
-    } else {
-      video.play().catch(() => {});
-    }
+    video.play().catch(() => {});
   }
 });
 
