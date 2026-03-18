@@ -536,11 +536,13 @@ input[type="search"]::-webkit-search-decoration { display: none; -webkit-appeara
 #resume-btn:active { background: rgba(30,36,52,.9); border-color: var(--border-active); }
 
 .buffer-overlay {
-  position:absolute; inset:0; display:none;
-  align-items:center; justify-content:center;
+  position:absolute; inset:0;
+  display:flex; align-items:center; justify-content:center;
   background:rgba(0,0,0,.5); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
+  opacity:0; pointer-events:none;
+  transition: opacity .2s ease;
 }
-.buffer-overlay.show { display:flex; }
+.buffer-overlay.show { opacity:1; pointer-events:none; }
 .spinner {
   width:42px; height:42px;
   border:3px solid rgba(255,255,255,.1); border-top-color:var(--accent);
