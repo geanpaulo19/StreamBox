@@ -10,8 +10,14 @@ const PROXY_BASE = 'https://streambox-proxy.geanpaulofrancois.workers.dev/proxy'
 
 const CORS_HOSTS = /hls\.iill\.top|^\d+\.\d+\.\d+\.\d+/;
 
+/* Only proxy when the page itself is served over HTTPS.
+   On plain HTTP (localhost / local dev) the browser allows
+   http:// streams directly — no mixed-content block.        */
+const NEED_PROXY = location.protocol === 'https:';
+
 function corsProxy(url) {
   if (!url) return url;
+  if (!NEED_PROXY) return url;   /* skip proxy on localhost/http */
   try {
     const p = new URL(url);
     if (!CORS_HOSTS.test(p.host)) return url;
@@ -1396,19 +1402,17 @@ function toggleFullscreen() {
   ).call(w);
 }
 
-/* ── Buffer overlay — with stall timeout so spinner doesn't stick ──
-   Key rules:
-   • Never show the spinner when the video is intentionally paused —
-     browsers fire 'stalled' a few seconds after pause as a network
-     hint, which was triggering infinite buffering.
-   • Debounce syncPlayPauseBtn so timeupdate (fires ~4×/s) doesn't
-     cause constant innerHTML thrashing and repaints (flicker).        */
-let stallTimer      = null;
-let syncBtnPending  = false;
+/* ── Buffer overlay ─────────────────────────────────────────────
+   • Never show spinner when intentionally paused (browser fires
+     'stalled' a few seconds after pause — was causing infinite
+     buffering state).
+   • Rate-limit syncPlayPauseBtn via rAF so timeupdate (~4×/s)
+     doesn't thrash innerHTML and cause flickering.               */
+let stallTimer     = null;
+let syncBtnPending = false;
 
 function showBuf(v) {
   clearTimeout(stallTimer);
-  /* Never show spinner while intentionally paused */
   if (v && video.paused) return;
   if (v) {
     stallTimer = setTimeout(() => {
@@ -1422,7 +1426,6 @@ function showBuf(v) {
   }
 }
 
-/* Rate-limit syncPlayPauseBtn to one call per animation frame */
 function scheduleSyncBtn() {
   if (syncBtnPending) return;
   syncBtnPending = true;
@@ -1432,16 +1435,15 @@ function scheduleSyncBtn() {
 let isPlaying = false;
 let pausedAt  = null;
 
-/* Pre-built SVGs so we never recreate them */
 const PLAY_SVG  = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
 const PAUSE_SVG = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><line x1="6" y1="4" x2="6" y2="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="18" y1="4" x2="18" y2="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>`;
 let _lastBtnState = null;
 
 function syncPlayPauseBtn() {
   const btn = $('playpause-btn'); if (!btn) return;
-  const hasError  = errorOvl.classList.contains('show');
-  const isIdle    = !idleScreen.classList.contains('hidden');
-  const isLoading = bufferOvl.classList.contains('show');
+  const hasError   = errorOvl.classList.contains('show');
+  const isIdle     = !idleScreen.classList.contains('hidden');
+  const isLoading  = bufferOvl.classList.contains('show');
   const shouldHide = !currentChannel || hasError || isIdle || isLoading;
   const state = `${isPlaying}|${shouldHide}`;
   if (state === _lastBtnState) return;
