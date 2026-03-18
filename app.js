@@ -8,7 +8,7 @@ const EP = {
 
 const PROXY_BASE = 'https://streambox-proxy.geanpaulofrancois.workers.dev/proxy';
 
-const CORS_HOSTS = /hls\.iill\.top|^\d+\.\d+\.\d+\.\d+/;
+const CORS_HOSTS = /hls\.iill\.top/;
 
 function corsProxy(url) {
   if (!url) return url;
@@ -142,13 +142,7 @@ function parseM3U(text) {
 function toSlug(s){return s.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');}
 
 const PH_CHANNELS = [
-  { name:'GMA 7',              logo:'https://i.imgur.com/Cu1tAY8.png',        cat:'entertainment', url:corsProxy('http://136.158.97.2:6610/001/2/ch00000090990000001093/manifest.mpd?AuthInfo=v87HD9rEhwHiAdYyrP20Tg5pgSMSITY%2FHYvvCWJRp%2BoLvT86fM74ocVChyFS93HUytokK1MIobcue1ImXa0ZEA%3D%3D&version=v1.0&BreakPoint=0&virtualDomain=001.live_hls.zte.com&programid=ch00000000000000001214&contentid=ch00000000000000001214&videoid=ch00000090990000001093&recommendtype=0&userid=1084724632836&boid=001&stbid=02%3A00%3A00%3A00%3A00%3A00&terminalflag=1&profilecode=&usersessionid=FGE3OISG4KGXXX&NeedJITP=1&JITPMediaType=DASH&JITPDRMType=NO') },
-  { name:'GTV',                logo:'https://i.imgur.com/geuq18u.png',        cat:'entertainment', url:corsProxy('http://136.239.159.18:6610/001/2/ch00000090990000001143/manifest.mpd?AuthInfo=v87HD9rEhwHiAdYyrP20Tg5pgSMSITY%2FHYvvCWJRp%2BrwAtJC%2BsmBQ5ARU076BdkhytokK1MIobcue1ImXa0ZEA%3D%3D&version=v1.0&BreakPoint=0&virtualDomain=001.live_hls.zte.com&programid=ch00000000000000001313&contentid=ch00000000000000001313&videoid=ch00000090990000001143&recommendtype=0&userid=1590268675436&boid=001&stbid=02%3A00%3A00%3A00%3A00%3A00&terminalflag=1&profilecode=&usersessionid=AAIUZ2MAG7XXXX&NeedJITP=1&JITPMediaType=DASH&JITPDRMType=NO') },
-  { name:'A2Z',                logo:'https://static.wikia.nocookie.net/russel/images/8/85/A2Z_Channel_11_without_Channel_11_3D_Logo_2020.png/revision/latest?cb=20231101144828', cat:'entertainment', url:'https://qp-pldt-live-bpk-02-prod.akamaized.net/bpk-tv/cg_a2z/default/index.mpd' },
-  { name:'Kapamilya Channel HD',logo:'https://i.imgur.com/WcYS3S3.png',       cat:'entertainment', url:corsProxy('http://136.239.173.2:6610/001/2/ch00000090990000001286/manifest.mpd?AuthInfo=v87HD9rEhwHiAdYyrP20Tg5pgSMSITY%2FHYvvCWJRp%2Bqw65FFCygtQMRRIUPF0xuXytokK1MIobcue1ImXa0ZEA%3D%3D&version=v1.0&BreakPoint=0&virtualDomain=001.live_hls.zte.com&programid=ch00000000000000001694&contentid=ch00000000000000001694&videoid=ch00000090990000001286&recommendtype=0&userid=1004802317138&boid=001&stbid=02%3A00%3A00%3A00%3A00%3A00&terminalflag=1&profilecode=&usersessionid=CCJLYZ04O9IXXX&NeedJITP=1&JITPMediaType=DASH&JITPDRMType=NO') },
-  { name:'CineMo!',             logo:'https://i.imgur.com/2Jn7QHG.png',        cat:'entertainment', url:'https://live-faws.akamaized.net/out/v1/3a895f368f4a467c9bca0962559efc19/index.mpd' },
-  { name:'ANC',                 logo:'https://i.imgur.com/Bcu69bU.png',        cat:'news',          url:'https://cdn-ue1-prod.tsv2.amagi.tv/linear/amg01006-abs-cbn-anc-global-dash-abscbnono/index.mpd' },
-  { name:'ALL TV',              logo:'https://brandlogo.org/wp-content/uploads/2024/05/All-TV-Logo-300x300.png.webp', cat:'entertainment', url:corsProxy('http://136.239.158.10:6610/001/2/ch00000090990000001179/manifest.mpd?AuthInfo=v87HD9rEhwHiAdYyrP20Tg5pgSMSITY%2FHYvvCWJRp%2Bow35sHUcBhGBpxqddBGYEnytoKK1MIobcue1ImXa0ZEA%3D%3D&version=v1.0&BreakPoint=0&virtualDomain=001.live_hls.zte.com&programid=ch00000000000000001415&contentid=ch00000000000000001415&videoid=ch00000090990000001179&recommendtype=0&userid=1205050496206&boid=001&stbid=02%3A00%3A00%3A00%3A00%3A00&terminalflag=1&profilecode=&usersessionid=02WMA0HI2O3AXX&NeedJITP=1&JITPMediaType=DASH&JITPDRMType=NO') },
+  { name:'GMA 7',              logo:'https://upload.wikimedia.org/wikipedia/en/thumb/9/93/GMA_Network_logo.svg/1200px-GMA_Network_logo.svg.png', cat:'entertainment', url:'https://gsattv.akamaized.net/live/media0/gma7/Fairplay/gma7.m3u8' },
   { name:'Star Movies',        logo:'https://upload.wikimedia.org/wikipedia/en/thumb/4/4f/Star_Movies_logo.svg/1200px-Star_Movies_logo.svg.png', cat:'entertainment', url:'https://converse.nathcreqtives.com/channels/starmovies/playlist.m3u8?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJNb29uIiwiaWF0IjoxNzcyNTg1NDEyLCJleHAiOjE3NzM4ODE0MTIsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3Mzg4MTQxMn0.pWBHcolaeZXd-5DAkMobbJn5DbFoSTDEWYuQn0LC5U4' },
   { name:'Star Movies Select', logo:'https://upload.wikimedia.org/wikipedia/en/thumb/4/4f/Star_Movies_logo.svg/1200px-Star_Movies_logo.svg.png', cat:'entertainment', url:'https://converse.nathcreqtives.com/channels/smselect/playlist.m3u8?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJNb29uIiwiaWF0IjoxNzcyNTg1NDEyLCJleHAiOjE3NzM4ODE0MTIsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3Mzg4MTQxMn0.pWBHcolaeZXd-5DAkMobbJn5DbFoSTDEWYuQn0LC5U4' },
   { name:'Heart of Asia',      logo:null, cat:'entertainment', url:'https://hls.nathcreqtives.com/playlist.m3u8?id=1&token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJNb29uIiwiaWF0IjoxNzcyNTg1NDEyLCJleHAiOjE3NzM4ODE0MTIsImFjY291bnRFeHBpcmVkIjpmYWxzZSwiYWNjb3VudEV4cGlyZXNBdCI6MTc3Mzg4MTQxMn0.pWBHcolaeZXd-5DAkMobbJn5DbFoSTDEWYuQn0LC5U4' },
@@ -1044,8 +1038,13 @@ function playHls(ch) {
       hls.detachMedia(); hls.loadSource(ch.url); hls.attachMedia(video);
     } else {
       hls = new Hls({
-        enableWorker: true, lowLatencyMode: true,
-        backBufferLength: 60, maxBufferLength: 30, maxMaxBufferLength: 90,
+        enableWorker:      true,
+        lowLatencyMode:    false,   /* off — regular live streams, not LL-HLS */
+        backBufferLength:  30,
+        maxBufferLength:   60,
+        maxMaxBufferLength: 120,
+        maxBufferHole:     0.5,     /* tolerate small gaps without rebuffering */
+        highBufferWatchdogPeriod: 2,
       });
       hls.loadSource(ch.url); hls.attachMedia(video); bindHlsEvents();
     }
@@ -1074,7 +1073,19 @@ function playDash(ch) {
 
   dashPlayer.updateSettings({
     streaming: {
-      lowLatencyEnabled: true,
+      lowLatencyEnabled: false,    /* off — regular live streams */
+      delay: {
+        liveDelay:            8,   /* comfortable 8s live delay */
+        liveCatchUpMinDrift:  0.5,
+        liveCatchUpPlaybackRate: 0.5,
+      },
+      buffer: {
+        fastSwitchEnabled:         true,
+        bufferTimeAtTopQuality:    12,
+        bufferTimeAtTopQualityLongForm: 20,
+        stableBufferTime:          12,
+        stallThreshold:            0.5,   /* ignore stalls shorter than 0.5s */
+      },
       abr: { initialBitrate: { video: 2000 } },
     },
   });
@@ -1109,6 +1120,9 @@ function playDash(ch) {
 
   dashPlayer.on(dashjs.MediaPlayer.events.PLAYBACK_WAITING, () => showBuf(true));
   dashPlayer.on(dashjs.MediaPlayer.events.PLAYBACK_PLAYING, () => showBuf(false));
+  dashPlayer.on(dashjs.MediaPlayer.events.PLAYBACK_PROGRESS, () => {
+    if (bufferOvl.classList.contains('show')) showBuf(false);
+  });
 }
 
 /* Convert hex string to base64url (for ClearKey) */
@@ -1398,6 +1412,8 @@ function toggleFullscreen() {
 
 /* ── Buffer overlay ─────────────────────────────────────────────
    • Never show spinner when intentionally paused.
+   • 1200ms debounce — hides brief ABR/segment stalls that resolve
+     themselves, eliminating the split-second spinner flash.
    • Rate-limit syncPlayPauseBtn via rAF to prevent flicker.     */
 let stallTimer     = null;
 let syncBtnPending = false;
@@ -1410,7 +1426,7 @@ function showBuf(v) {
       if (video.paused) return;
       bufferOvl.classList.add('show');
       scheduleSyncBtn();
-    }, 600);
+    }, 1200);                        /* raised from 600 → 1200ms */
   } else {
     bufferOvl.classList.remove('show');
     scheduleSyncBtn();
