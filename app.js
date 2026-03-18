@@ -10,14 +10,8 @@ const PROXY_BASE = 'https://streambox-proxy.geanpaulofrancois.workers.dev/proxy'
 
 const CORS_HOSTS = /hls\.iill\.top|^\d+\.\d+\.\d+\.\d+/;
 
-/* Only proxy when the page itself is served over HTTPS.
-   On plain HTTP (localhost / local dev) the browser allows
-   http:// streams directly — no mixed-content block.        */
-const NEED_PROXY = location.protocol === 'https:';
-
 function corsProxy(url) {
   if (!url) return url;
-  if (!NEED_PROXY) return url;   /* skip proxy on localhost/http */
   try {
     const p = new URL(url);
     if (!CORS_HOSTS.test(p.host)) return url;
@@ -1403,11 +1397,8 @@ function toggleFullscreen() {
 }
 
 /* ── Buffer overlay ─────────────────────────────────────────────
-   • Never show spinner when intentionally paused (browser fires
-     'stalled' a few seconds after pause — was causing infinite
-     buffering state).
-   • Rate-limit syncPlayPauseBtn via rAF so timeupdate (~4×/s)
-     doesn't thrash innerHTML and cause flickering.               */
+   • Never show spinner when intentionally paused.
+   • Rate-limit syncPlayPauseBtn via rAF to prevent flicker.     */
 let stallTimer     = null;
 let syncBtnPending = false;
 
