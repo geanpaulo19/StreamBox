@@ -1039,12 +1039,11 @@ function playHls(ch) {
     } else {
       hls = new Hls({
         enableWorker:      true,
-        lowLatencyMode:    false,   /* off — regular live streams, not LL-HLS */
+        lowLatencyMode:    false,
         backBufferLength:  30,
         maxBufferLength:   60,
         maxMaxBufferLength: 120,
-        maxBufferHole:     0.5,     /* tolerate small gaps without rebuffering */
-        highBufferWatchdogPeriod: 2,
+        maxBufferHole:     0.5,
       });
       hls.loadSource(ch.url); hls.attachMedia(video); bindHlsEvents();
     }
@@ -1073,19 +1072,9 @@ function playDash(ch) {
 
   dashPlayer.updateSettings({
     streaming: {
-      lowLatencyEnabled: false,    /* off — regular live streams */
-      delay: {
-        liveDelay:            8,   /* comfortable 8s live delay */
-        liveCatchUpMinDrift:  0.5,
-        liveCatchUpPlaybackRate: 0.5,
-      },
-      buffer: {
-        fastSwitchEnabled:         true,
-        bufferTimeAtTopQuality:    12,
-        bufferTimeAtTopQualityLongForm: 20,
-        stableBufferTime:          12,
-        stallThreshold:            0.5,   /* ignore stalls shorter than 0.5s */
-      },
+      lowLatencyEnabled: false,
+      delay: { liveDelay: 8, liveCatchUpMinDrift: 0.5, liveCatchUpPlaybackRate: 0.5 },
+      buffer: { fastSwitchEnabled: true, stableBufferTime: 12, stallThreshold: 0.5 },
       abr: { initialBitrate: { video: 2000 } },
     },
   });
@@ -1120,9 +1109,7 @@ function playDash(ch) {
 
   dashPlayer.on(dashjs.MediaPlayer.events.PLAYBACK_WAITING, () => showBuf(true));
   dashPlayer.on(dashjs.MediaPlayer.events.PLAYBACK_PLAYING, () => showBuf(false));
-  dashPlayer.on(dashjs.MediaPlayer.events.PLAYBACK_PROGRESS, () => {
-    if (bufferOvl.classList.contains('show')) showBuf(false);
-  });
+  dashPlayer.on(dashjs.MediaPlayer.events.PLAYBACK_PROGRESS, () => { if (bufferOvl.classList.contains('show')) showBuf(false); });
 }
 
 /* Convert hex string to base64url (for ClearKey) */
@@ -1274,8 +1261,12 @@ function resumeAfterFullscreen() {
 
   if (Hls.isSupported()) {
     hls = new Hls({
-      enableWorker: true, lowLatencyMode: true,
-      backBufferLength: 60, maxBufferLength: 30, maxMaxBufferLength: 90,
+      enableWorker:      true,
+      lowLatencyMode:    false,
+      backBufferLength:  30,
+      maxBufferLength:   60,
+      maxMaxBufferLength: 120,
+      maxBufferHole:     0.5,
     });
     hls.loadSource(currentChannel.url);
     hls.attachMedia(video);
@@ -1411,10 +1402,9 @@ function toggleFullscreen() {
 }
 
 /* ── Buffer overlay ─────────────────────────────────────────────
-   • Never show spinner when intentionally paused.
-   • 1200ms debounce — hides brief ABR/segment stalls that resolve
-     themselves, eliminating the split-second spinner flash.
-   • Rate-limit syncPlayPauseBtn via rAF to prevent flicker.     */
+   1200ms debounce hides brief ABR/segment stalls.
+   Never show spinner while intentionally paused.
+   Rate-limit syncPlayPauseBtn via rAF to stop timeupdate flicker. */
 let stallTimer     = null;
 let syncBtnPending = false;
 
@@ -1426,7 +1416,7 @@ function showBuf(v) {
       if (video.paused) return;
       bufferOvl.classList.add('show');
       scheduleSyncBtn();
-    }, 1200);                        /* raised from 600 → 1200ms */
+    }, 1200);
   } else {
     bufferOvl.classList.remove('show');
     scheduleSyncBtn();
@@ -1609,6 +1599,38 @@ document.addEventListener('keydown',e=>{
   if(e.key===' '){ e.preventDefault(); togglePlayPause(); }
   if(e.key==='b' && !isMobile()) app.classList.toggle('sidebar-hidden');
   if(e.key==='/'){ e.preventDefault(); searchInput.focus(); }
+});
+
+
+/* ── Page visibility — reload stream when returning from background ──
+   On mobile, browsers suspend video when the app is backgrounded or
+   the screen locks. On return the buffer is cold and stale, causing
+   persistent buffering. We detect this and reload the stream cleanly. */
+let hiddenAt = null;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    hiddenAt = Date.now();
+    /* Clear stall timer while hidden — no point showing spinner */
+    clearTimeout(stallTimer);
+    bufferOvl.classList.remove('show');
+  } else {
+    if (!currentChannel) return;
+    const awayMs = hiddenAt ? Date.now() - hiddenAt : 0;
+    hiddenAt = null;
+    /* If away for more than 30s, reload the stream to snap to live edge */
+    if (awayMs > 30000) {
+      switchTo(currentChannel);
+    } else if (awayMs > 5000) {
+      /* Short absence — just try to resume; reload if stalled after 3s */
+      video.play().catch(() => {});
+      const recoverTimer = setTimeout(() => {
+        if (video.paused || video.readyState < 3) switchTo(currentChannel);
+      }, 3000);
+      video.addEventListener('playing', () => clearTimeout(recoverTimer), { once: true });
+    } else {
+      video.play().catch(() => {});
+    }
+  }
 });
 
 loadAll();
