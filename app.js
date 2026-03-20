@@ -60,6 +60,16 @@ function toggleFav(id) {
 }
 
 let isRestoring = false;  // set true just before restore switchTo, cleared inside
+
+/* ─── Preloader ───────────────────────────────────────────────── */
+/* Warms up the next channel's manifest + first segments before
+   the user clicks, so switchTo() can hand off an already-buffering
+   Hls instance instead of starting cold.
+   Only HLS channels benefit — DASH preload just resolves the URL. */
+let preloadTarget  = null;   // channel object being preloaded
+let preloadHls     = null;   // warm Hls instance (detached from video)
+let preloadUrl     = null;   // resolved URL for preloadTarget
+let preloadTimer   = null;   // debounce before starting preload
 const ITEM_H    = 54;   // px — must match min-height in CSS
 const OVERSCAN  = 8;    // extra rows above/below viewport
 let vsRenderedStart = 0;
@@ -145,8 +155,8 @@ function toSlug(s){return s.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-
 
 const PH_CHANNELS = [
   // ── Major free-to-air ────────────────────────────────────────
-  { name:'GMA 7',        logo:'https://i.imgur.com/Cu1tAY8.png',  cat:'entertainment', url:('http://136.158.97.2:6610/001/2/ch00000090990000001093/manifest.mpd?AuthInfo=v87HD9rEhwHiAdYyrP20Tg5pgSMSITY%2FHYvvCWJRp%2BoLvT86fM74ocVChyFS93HUytokK1MIobcue1ImXa0ZEA%3D%3D&version=v1.0&BreakPoint=0&virtualDomain=001.live_hls.zte.com&programid=ch00000000000000001214&contentid=ch00000000000000001214&videoid=ch00000090990000001093&recommendtype=0&userid=1084724632836&boid=001&stbid=02%3A00%3A00%3A00%3A00%3A00&terminalflag=1&profilecode=&usersessionid=FGE3OISG4KGXXX&NeedJITP=1&JITPMediaType=DASH&JITPDRMType=NO') },
-  { name:'Kapamilya Channel HD',logo:'https://i.imgur.com/WcYS3S3.png', cat:'entertainment', url:('http://136.239.173.2:6610/001/2/ch00000090990000001286/manifest.mpd?AuthInfo=v87HD9rEhwHiAdYyrP20Tg5pgSMSITY%2FHYvvCWJRp%2Bqw65FFCygtQMRRIUPF0xuXytokK1MIobcue1ImXa0ZEA%3D%3D&version=v1.0&BreakPoint=0&virtualDomain=001.live_hls.zte.com&programid=ch00000000000000001694&contentid=ch00000000000000001694&videoid=ch00000090990000001286&recommendtype=0&userid=1004802317138&boid=001&stbid=02%3A00%3A00%3A00%3A00%3A00&terminalflag=1&profilecode=&usersessionid=CCJLYZ04O9IXXX&NeedJITP=1&JITPMediaType=DASH&JITPDRMType=NO') },
+  { name:'GMA 7',        logo:'https://i.imgur.com/Cu1tAY8.png',  cat:'entertainment', url:'https://m3uiptv.kkt01.workers.dev/stream?t=eyJ1c2VyIjoiYWRtaW4iLCJleHAiOjE3NzQyNjk3NzE0MDksIm0zdSI6Imh0dHBzOi8vcmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbS9TYXN1dzMwL2NvbWJpbTN1L3JlZnMvaGVhZHMvbWFpbi9jb21iaW5lZF9wbGF5bGlzdC5tM3UifQ.fad76cf5bb941595e49010ca9845c16f282454af87ad04a066a205ea786d9ed6&url=aHR0cDovLzEzNi4xNTguOTcuMjo2NjEwLzAwMS8yL2NoMDAwMDAwOTA5OTAwMDAwMDEwOTMvbWFuaWZlc3QubXBkP0F1dGhJbmZvPXY4N0hEOXJFaHdIaUFkWXlyUDIwVGc1cGdTTVNJVFklMkZIWXZ2Q1dKUnAlMkJvTHZUODZmTTc0b2NWQ2h5RlM5M0hVeXRva0sxTUlvYmN1ZTFJbVhhMFpFQSUzRCUzRCZ2ZXJzaW9uPXYxLjAmQnJlYWtQb2ludD0wJnZpcnR1YWxEb21haW49MDAxLmxpdmVfaGxzLnp0ZS5jb20mcHJvZ3JhbWlkPWNoMDAwMDAwMDAwMDAwMDAwMDEyMTQmY29udGVudGlkPWNoMDAwMDAwMDAwMDAwMDAwMDEyMTQmdmlkZW9pZD1jaDAwMDAwMDkwOTkwMDAwMDAxMDkzJnJlY29tbWVuZHR5cGU9MCZ1c2VyaWQ9MTA4NDcyNDYzMjgzNiZib2lkPTAwMSZzdGJpZD0wMiUzQTAwJTNBMDAlM0EwMCUzQTAwJTNBMDAmdGVybWluYWxmbGFnPTEmcHJvZmlsZWNvZGU9JnVzZXJzZXNzaW9uaWQ9RkdFM09JU0c0S0dYWFgmTmVlZEpJVFA9MSZKSVRQTWVkaWFUeXBlPURBU0gmSklUUERSTVR5cGU9Tk8' },
+  { name:'Kapamilya Channel HD',logo:'https://i.imgur.com/WcYS3S3.png', cat:'entertainment', url:'https://m3uiptv.kkt01.workers.dev/stream?t=eyJ1c2VyIjoiYWRtaW4iLCJleHAiOjE3NzQyNjk3NzE0MDksIm0zdSI6Imh0dHBzOi8vcmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbS9TZXN1dzMwL2NvbWJpbTN1L3JlZnMvaGVhZHMvbWFpbi9jb21iaW5lZF9wbGF5bGlzdC5tM3UifQ.fad76cf5bb941595e49010ca9845c16f282454af87ad04a066a205ea786d9ed6&url=aHR0cDovLzEzNi4yMzkuMTczLjI6NjYxMC8wMDEvMi9jaDAwMDAwMDkwOTkwMDAwMDAxMjg2L21hbmlmZXN0Lm1wZD9BdXRoSW5mbz12ODdIRDlyRWh3SGlBZFl5clAyMFRnNXBnU01TSVRZJTJGSFl2dkNXSlJwJTJCcXc2NUZGQ3lndFFNUlJJVVBGMHh1WHl0b2tLMU1Jb2JjdWUxSW1YYTBaRUElM0QlM0QmdmVyc2lvbj12MS4wJkJyZWFrUG9pbnQ9MCZ2aXJ0dWFsRG9tYWluPTAwMS5saXZlX2hscy56dGUuY29tJnByb2dyYW1pZD1jaDAwMDAwMDAwMDAwMDAwMDAxNjk0JmNvbnRlbnRpZD1jaDAwMDAwMDAwMDAwMDAwMDAxNjk0JnZpZGVvaWQ9Y2gwMDAwMDA5MDk5MDAwMDAwMTI4NiZyZWNvbW1lbmR0eXBlPTAmdXNlcmlkPTEwMDQ4MDIzMTcxMzgmYm9pZD0wMDEmc3RiaWQ9MDIlM0EwMCUzQTAwJTNBMDAlM0EwMCUzQTAwJnRlcm1pbmFsZmxhZz0xJnByb2ZpbGVjb2RlPSZ1c2Vyc2Vzc2lvbmlkPUNDSkxZWjA0TzlJWFhYJk5lZWRKSVRQPTEmSklUUE1lZGlhVHlwZT1EQVNIJkpJVFBEUk1UeXBlPU5P' },
   { name:'Star TV Philippines',  logo:null,                                                                                                                                          cat:'entertainment', url:'https://startvphilippines.sanmateocable.workers.dev/playlist.m3u8' },
   { name:'SineManila',           logo:'https://i.imgur.com/zcFUYC5.png',                                                                                                            cat:'entertainment', url:'https://live20.bozztv.com/giatv/giatv-sinemanila/sinemanila/chunks.m3u8' },
   { name:'3rsMovieBoxPh',        logo:'https://i.imgur.com/b4rjf8nl.png',                                                                                                           cat:'entertainment', url:'https://live20.bozztv.com/giatvplayout7/giatv-210731/tracks-v1a1/mono.ts.m3u8' },
@@ -635,11 +645,17 @@ function buildItem(ch, i) {
 
   li.append(wrap, info, dot, favBtn);
   li.addEventListener('click', () => switchTo(ch));
+  li.addEventListener('mouseenter', () => preloadChannel(ch));
+  li.addEventListener('mouseleave', () => {
+    /* Only cancel if the user hasn't committed — keep warming if still hovering */
+    clearTimeout(preloadTimer);
+  });
 
   /* Track touch start position — cancel if user scrolled */
   let touchStartY = 0;
   li.addEventListener('touchstart', e => {
     touchStartY = e.touches[0].clientY;
+    preloadChannel(ch);  // start warming immediately on touch
   }, { passive: true });
   li.addEventListener('touchend', e => {
     const moved = Math.abs(e.changedTouches[0].clientY - touchStartY);
@@ -835,6 +851,7 @@ function renderSuggestions() {
     arrow.innerHTML = '<polyline points="9 18 15 12 9 6"/>';
 
     li.append(logoWrap, body, arrow);
+    li.addEventListener('mouseenter', () => preloadChannel(ch));
     li.addEventListener('click', () => switchTo(ch));
     frag.appendChild(li);
   });
@@ -998,6 +1015,76 @@ catTabs.addEventListener('click', e => {
   applyFilters();
 });
 
+/* ── M3U playlist URL resolver ─────────────────────────────────
+   Some channels wrap the real stream URL in a base64 `url=`
+   query param (e.g. kkt01.workers.dev proxy). This decodes it
+   client-side so we can sniff the real format (.mpd vs .m3u8)
+   and route to the correct player — no extra network request.   */
+async function resolveStreamUrl(url) {
+  try {
+    const parsed = new URL(url);
+    const encoded = parsed.searchParams.get('url');
+    if (encoded) {
+      const decoded = atob(encoded);
+      if (decoded.startsWith('http')) return decoded;
+    }
+  } catch(e) {}
+  return url;
+}
+
+/* ── Preloader ──────────────────────────────────────────────────
+   Called on mouseenter / touchstart on a channel row.
+   Resolves the URL and starts loading the HLS manifest + first
+   fragments into a detached Hls instance. If the user then clicks,
+   switchTo() reuses the warm instance instead of starting cold.   */
+function preloadChannel(ch) {
+  if (!ch?.url) return;
+  if (preloadTarget?.id === ch.id) return;  // already warming this one
+  if (currentChannel?.id === ch.id) return; // already playing
+
+  cancelPreload();
+
+  /* Short debounce — don't preload if the user is just scrolling past */
+  preloadTimer = setTimeout(async () => {
+    preloadTarget = ch;
+
+    const resolvedUrl = await resolveStreamUrl(ch.url);
+    preloadUrl = resolvedUrl;
+
+    /* Only preload HLS — DASH preloading via dash.js is too heavy
+       and risks interfering with the active player's MSE buffers.
+       For DASH we at least cache the resolved URL so switchTo() skips
+       the atob() step. */
+    if (resolvedUrl.includes('.mpd')) return;
+    if (!Hls.isSupported()) return;
+
+    try {
+      preloadHls = new Hls({ ...makeHlsConfig(), autoStartLoad: true, startPosition: -1 });
+      /* Attach to a silent off-screen video element so the browser
+         actually buffers segments, not just fetches the manifest */
+      const ghost = document.createElement('video');
+      ghost.muted  = true;
+      ghost.volume = 0;
+      preloadHls.loadSource(resolvedUrl);
+      preloadHls.attachMedia(ghost);
+      console.info('[StreamBox] Preloading:', ch.name);
+    } catch(e) {
+      cancelPreload();
+    }
+  }, 120);
+}
+
+function cancelPreload() {
+  clearTimeout(preloadTimer);
+  preloadTimer = null;
+  if (preloadHls) {
+    try { preloadHls.destroy(); } catch(e) {}
+    preloadHls = null;
+  }
+  preloadTarget = null;
+  preloadUrl    = null;
+}
+
 function switchTo(ch) {
   if (!ch?.url) { showToast('⚠ No stream URL for this channel'); return; }
 
@@ -1049,8 +1136,35 @@ function switchTo(ch) {
   }
   syncMuteBtn();
 
-  const isDash = ch.url.includes('.mpd');
-  isDash ? playDash(ch) : playHls(ch);
+  resolveStreamUrl(ch.url).then(resolvedUrl => {
+    /* Use preloaded resolved URL if available for this channel */
+    const url = (preloadTarget?.id === ch.id && preloadUrl) ? preloadUrl : resolvedUrl;
+    const isDash = url.includes('.mpd');
+
+    if (isDash) {
+      cancelPreload();
+      playDash({ ...ch, url });
+      return;
+    }
+
+    /* Hand off pre-warmed HLS instance if we have one for this channel */
+    if (preloadTarget?.id === ch.id && preloadHls && Hls.isSupported()) {
+      console.info('[StreamBox] Using preloaded HLS for:', ch.name);
+      if (dashPlayer) { try { dashPlayer.destroy(); } catch(e){} dashPlayer = null; }
+      if (hls) { hls.destroy(); }
+      hls = preloadHls;
+      preloadHls  = null;
+      preloadTarget = null;
+      preloadUrl    = null;
+      /* Re-attach to the real video element and resume */
+      hls.attachMedia(video);
+      bindHlsEvents();
+      video.play().catch(() => {});
+    } else {
+      cancelPreload();
+      playHls({ ...ch, url });
+    }
+  });
 
   /* Safety net: if playing never fires within 12s, reload once.
      Use a module-level timer so any prior guard is always cancelled first. */
