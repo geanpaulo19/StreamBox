@@ -32,6 +32,9 @@ let retryTarget       = null;
 let isMuted           = true;
 let epgTimer          = null;
 let _switchGuardTimer = null;
+let _loadRetryCount   = 0;      // how many auto-retries we've done for the current channel
+let _channelFailed    = false;  // true once we've given up — blocks further auto-retries
+const MAX_AUTO_RETRIES = 2;     // show error after this many failed attempts
 
 /* ─── Persistence ─────────────────────────────────────────────── */
 const LS_LAST    = 'sb_last_channel';
@@ -185,6 +188,7 @@ const PH_CHANNELS = [
 
   // ── General ───────────────────────────────────────────────────
   { name:'Mindanow Network TV',  logo:null,                                                                                                                                          cat:'general',       url:'https://streams.comclark.com/overlay/mindanow/playlist.m3u8' },
+
   // ── Sports ────────────────────────────────────────────────────
   { name:'DAZN Combat',          logo:null,                                                                                                                                          cat:'sports',        url:'https://dazn-combat-rakuten.amagi.tv/hls/amagi_hls_data_rakutenAA-dazn-combat-rakuten/CDN/master.m3u8' },
   { name:'DAZN Ringside',        logo:null,                                                                                                                                          cat:'sports',        url:'https://aegis-cloudfront-1.tubi.video/bfad29e2-5bee-44f3-8256-127324e8b106/playlist.m3u8' },
@@ -213,21 +217,7 @@ const PH_CHANNELS = [
   flag:    '\uD83C\uDDF5\uD83C\uDDED',
 }));
 
-const US_CHANNELS = [
-  { name:'National Geographic HD',      logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fc/Natgeologo.svg/960px-Natgeologo.svg.png',             cat:'entertainment', url:'https://tvpass.org/live/NationalGeographicEast/hd' },
-  { name:'National Geographic Wild HD', logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/National_Geographic_Wild_logo.svg/960px-National_Geographic_Wild_logo.svg.png', cat:'entertainment', url:'https://tvpass.org/live/NationalGeographicWildEast/hd' },
-].map(ch => ({
-  id:      'us-local-' + ch.name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''),
-  name:    ch.name,
-  logo:    ch.logo,
-  cat:     ch.cat,
-  url:     ch.url,
-  drm:     null,
-  status:  'online',
-  country: 'US',
-  ctname:  'United States',
-  flag:    '\uD83C\uDDFA\uD83C\uDDF8',
-}));
+
 function showSkeletons(n=16){
   chList.innerHTML=Array.from({length:n},(_,i)=>`
     <li class="skel-item" style="animation-delay:${i*18}ms">
@@ -267,7 +257,7 @@ async function loadAll() {
 
   /* ── Show PH channels immediately while API loads ─────────────
      This gives instant content instead of a blank skeleton wait. */
-  allChannels = [...PH_CHANNELS, ...US_CHANNELS];
+  allChannels = [...PH_CHANNELS];
   buildSearchIndex();
   buildCountryDropdown();
   syncCatTabs();
@@ -353,9 +343,9 @@ async function loadAll() {
       });
 
       /* Merge: keep curated channels at top, append API channels deduped */
-      const curatedIds = new Set([...PH_CHANNELS, ...US_CHANNELS].map(c => c.id));
+      const curatedIds = new Set(PH_CHANNELS.map(c => c.id));
       const apiChannels = sorted.filter(c => !curatedIds.has(c.id));
-      allChannels = [...PH_CHANNELS, ...US_CHANNELS, ...apiChannels];
+      allChannels = [...PH_CHANNELS, ...apiChannels];
 
       console.info(`[StreamBox] ${allChannels.length} channels loaded`);
     } catch(e){ console.warn('[StreamBox] channels.json error', e); }
@@ -992,8 +982,17 @@ catTabs.addEventListener('click', e => {
   applyFilters();
 });
 
-function switchTo(ch) {
+function switchTo(ch, _isAutoRetry = false) {
   if (!ch?.url) { showToast('⚠ No stream URL for this channel'); return; }
+
+  /* Reset retry state on a fresh manual switch; guard auto-retries */
+  if (!_isAutoRetry) {
+    _loadRetryCount = 0;
+    _channelFailed  = false;
+  } else if (_channelFailed) {
+    /* Another path already gave up — don't re-enter */
+    return;
+  }
 
   currentChannel = ch;
   retryTarget    = ch;
@@ -1046,14 +1045,22 @@ function switchTo(ch) {
   const isDash = ch.url.includes('.mpd');
   isDash ? playDash(ch) : playHls(ch);
 
-  /* Safety net: if playing never fires within 12s, reload once.
-     Use a module-level timer so any prior guard is always cancelled first. */
+  /* Safety net: if playing never fires within 12s, retry up to MAX_AUTO_RETRIES times,
+     then give up and show the error overlay. */
   clearTimeout(_switchGuardTimer);
   if (!wasRestoring) {
     _switchGuardTimer = setTimeout(() => {
-      if (currentChannel?.id === ch.id && !isPlaying && bufferOvl.classList.contains('show')) {
-        console.info('[StreamBox] play never fired after 12s — retrying');
-        switchTo(ch);
+      if (currentChannel?.id !== ch.id || isPlaying || !bufferOvl.classList.contains('show')) return;
+      if (_channelFailed) return;  // stall detector already gave up
+      if (_loadRetryCount < MAX_AUTO_RETRIES) {
+        _loadRetryCount++;
+        console.info(`[StreamBox] play never fired after 12s — retry ${_loadRetryCount}/${MAX_AUTO_RETRIES}`);
+        switchTo(ch, true);
+      } else {
+        _channelFailed = true;
+        console.info('[StreamBox] Max retries reached — stream is unavailable');
+        bufferOvl.classList.remove('show');
+        showErr('This channel is currently unavailable or offline.');
       }
     }, 12000);
     video.addEventListener('playing', () => clearTimeout(_switchGuardTimer), { once: true });
@@ -1067,23 +1074,36 @@ function makeHlsConfig() {
   return {
     enableWorker:              true,
     lowLatencyMode:            false,
-    /* Buffer: short so playback starts fast on any connection */
+
+    /* Buffer: larger cushion absorbs weak-connection hiccups.
+       30s target / 60s ceiling gives plenty of runway before stalling.
+       backBufferLength kept short to save memory on mobile.          */
     backBufferLength:          8,
-    maxBufferLength:           16,
-    maxMaxBufferLength:        30,
-    maxBufferHole:             1.0,   // was 0.5 — mobile streams have larger gaps
-    /* ABR: conservative start so mobile doesn't lock onto 1080p immediately */
+    maxBufferLength:           30,
+    maxMaxBufferLength:        60,
+    maxBufferHole:             1.5,
+
+    /* ABR: start at lowest quality, ramp up from there.
+       500 Kbps initial estimate picks the lowest rendition first — much
+       better than locking onto 1080p on a weak connection and stalling. */
     startLevel:                -1,
-    abrEwmaDefaultEstimate:    1500000, // avoid ES2021 _ separator for old WebView
-    /* Timeouts: cap hanging requests on flaky mobile networks */
-    fragLoadingTimeOut:        8000,
-    fragLoadingMaxRetry:       4,
-    fragLoadingRetryDelay:     500,
-    levelLoadingTimeOut:       8000,
-    levelLoadingMaxRetry:      4,
-    levelLoadingRetryDelay:    500,
-    manifestLoadingTimeOut:    10000,
-    manifestLoadingMaxRetry:   3,
+    abrEwmaDefaultEstimate:    500000,
+    abrEwmaFastLive:           3,
+    abrEwmaSlowLive:           9,
+
+    /* Timeouts & retries:
+       fragLoadingMaxRetry:2 lets HLS.js silently retry transient drops
+       (packet loss, momentary CDN hiccup) without triggering a full reload.
+       Our 403/401 guard in bindHlsEvents still catches permanent failures.
+       manifest/level retries stay 0 — those are handled by switchTo.    */
+    fragLoadingTimeOut:        10000,
+    fragLoadingMaxRetry:       2,
+    fragLoadingRetryDelay:     1000,
+    levelLoadingTimeOut:       10000,
+    levelLoadingMaxRetry:      0,
+    levelLoadingRetryDelay:    1000,
+    manifestLoadingTimeOut:    12000,
+    manifestLoadingMaxRetry:   0,
     manifestLoadingRetryDelay: 1000,
   };
 }
@@ -1239,7 +1259,8 @@ async function loadEpg(ch) {
 }
 
 function bindHlsEvents() {
-  let mediaErrCount = 0;
+  let mediaErrCount  = 0;
+  let httpErrHandled = false;  // prevent duplicate handling of repeated 403/401 events
 
   hls.on(Hls.Events.MANIFEST_PARSED, () => {
     mediaErrCount = 0;
@@ -1251,22 +1272,59 @@ function bindHlsEvents() {
   });
 
   hls.on(Hls.Events.ERROR, (_, d) => {
+    /* Non-fatal 403/401: fragment or level rejected by CDN — treat as terminal.
+       HLS.js will keep hammering the URL forever otherwise. */
     if (!d.fatal) {
-      if (d.type === Hls.ErrorTypes.NETWORK_ERROR &&
-          (d.details === Hls.ErrorDetails.FRAG_LOAD_TIMEOUT ||
-           d.details === Hls.ErrorDetails.LEVEL_LOAD_TIMEOUT)) {
-        hls.startLoad();
+      const status = d.response?.code ?? d.response?.status;
+      if ((status === 403 || status === 401) && !httpErrHandled) {
+        httpErrHandled = true;
+        hls.stopLoad();
+        if (_channelFailed) return;
+        if (_loadRetryCount < MAX_AUTO_RETRIES) {
+          _loadRetryCount++;
+          console.info(`[StreamBox] HTTP ${status} on fragment/level — retry ${_loadRetryCount}/${MAX_AUTO_RETRIES}`);
+          switchTo(currentChannel, true);
+        } else {
+          _channelFailed = true;
+          clearTimeout(_switchGuardTimer);
+          bufferOvl.classList.remove('show');
+          console.info(`[StreamBox] HTTP ${status} — max retries reached, stream is geo-blocked or offline`);
+          showErr('This channel is unavailable or geo-restricted in your region.');
+        }
       }
       return;
     }
+
     showBuf(false);
+
     if (d.type === Hls.ErrorTypes.NETWORK_ERROR) {
-      hls.startLoad();
+      /* Fatal network error (manifest 404, repeated timeouts, etc.)
+         Stop HLS.js immediately so it doesn't keep retrying on its own,
+         then route through our controlled retry system. */
+      hls.stopLoad();
+      if (_channelFailed) return;
+      if (_loadRetryCount < MAX_AUTO_RETRIES) {
+        _loadRetryCount++;
+        console.info(`[StreamBox] HLS fatal network error — retry ${_loadRetryCount}/${MAX_AUTO_RETRIES}`);
+        switchTo(currentChannel, true);
+      } else {
+        _channelFailed = true;
+        clearTimeout(_switchGuardTimer);
+        console.info('[StreamBox] HLS fatal network error — max retries reached');
+        showErr('This channel is currently unavailable or offline.');
+      }
     } else if (d.type === Hls.ErrorTypes.MEDIA_ERROR) {
       mediaErrCount++;
-      if (mediaErrCount <= 3) hls.recoverMediaError();
-      else showErr('Playback error. Channel may be temporarily down.');
+      if (mediaErrCount <= 3) {
+        hls.recoverMediaError();
+      } else {
+        _channelFailed = true;
+        clearTimeout(_switchGuardTimer);
+        showErr('Playback error. Channel may be temporarily down.');
+      }
     } else {
+      _channelFailed = true;
+      clearTimeout(_switchGuardTimer);
       showErr('Playback error. Channel may be temporarily down.');
     }
   });
@@ -1349,7 +1407,20 @@ video.addEventListener('webkitendfullscreen',       () => onFullscreenExit());
    ABR switches). We use the stall detector (currentTime polling) instead. */
 video.addEventListener('playing',    () => { showBuf(false); startStallDetector(); });
 video.addEventListener('canplay',    () => { showBuf(false); });
-video.addEventListener('error',      () => { showBuf(false); stopStallDetector(); if(currentChannel) showErr('Could not load stream.'); });
+video.addEventListener('error', () => {
+  showBuf(false);
+  stopStallDetector();
+  clearTimeout(_switchGuardTimer);
+  if (!currentChannel || _channelFailed) return;
+  if (_loadRetryCount < MAX_AUTO_RETRIES) {
+    _loadRetryCount++;
+    console.info(`[StreamBox] video error — retry ${_loadRetryCount}/${MAX_AUTO_RETRIES}`);
+    switchTo(currentChannel, true);
+  } else {
+    _channelFailed = true;
+    showErr('Could not load stream.');
+  }
+});
 
 function showErr(msg) {
   errorMsg.textContent = msg;
@@ -1428,7 +1499,7 @@ function showToast(msg, ms=2400){
   setTimeout(()=>toast.classList.remove('show'),ms);
 }
 
-$('retry-btn').addEventListener('click',()=>{ if(!retryTarget) return; errorOvl.classList.remove('show'); switchTo(retryTarget); });
+$('retry-btn').addEventListener('click',()=>{ if(!retryTarget) return; _loadRetryCount = 0; errorOvl.classList.remove('show'); switchTo(retryTarget); });
 
 /* Clicking the mute hint unmutes */
 $('mute-hint').addEventListener('click', () => {
@@ -1478,32 +1549,62 @@ let _lastTime      = -1;
 let _stallStart    = 0;
 let _stallInterval = null;   // replaces rAF — polls every 500ms to save battery
 
+let _stallRecovered = false;  // true if we already tried a soft recovery this stall
+
 function startStallDetector() {
   if (_stallInterval) return;
-  _lastTime   = video.currentTime;
-  _stallStart = 0;
+  _lastTime      = video.currentTime;
+  _stallStart    = 0;
+  _stallRecovered = false;
 
   _stallInterval = setInterval(() => {
     if (video.paused || video.ended || !currentChannel) {
       _stallStart = 0; _lastTime = video.currentTime; return;
     }
     if (video.currentTime !== _lastTime) {
-      _lastTime   = video.currentTime;
-      _stallStart = 0;
+      _lastTime      = video.currentTime;
+      _stallStart    = 0;
+      _stallRecovered = false;   // stream is moving again — reset recovery flag
       if (bufferOvl.classList.contains('show')) showBuf(false);
       return;
     }
     /* currentTime not advancing */
     if (_stallStart === 0) _stallStart = Date.now();
     const stalledMs = Date.now() - _stallStart;
+
     if (stalledMs > 2000 && !bufferOvl.classList.contains('show')) {
       bufferOvl.classList.add('show');
       scheduleSyncBtn();
     }
-    if (stalledMs > 15000 && currentChannel) {
-      console.info('[StreamBox] Stall >15s — reloading stream');
+
+    /* Soft recovery at 5s: seek to live edge and restart loading.
+       This is seamless — no full reload, no spinner flash.
+       Only attempt once per stall episode (_stallRecovered flag). */
+    if (stalledMs > 5000 && !_stallRecovered && hls && !_channelFailed) {
+      _stallRecovered = true;
+      console.info('[StreamBox] Stall >5s — attempting soft live-edge recovery');
+      try {
+        hls.stopLoad();
+        hls.startLoad(-1);  // -1 = seek to live edge
+        video.play().catch(() => {});
+      } catch(e) { console.warn('[StreamBox] Soft recovery failed', e); }
+      return;
+    }
+
+    /* Hard retry at 20s if soft recovery didn't help */
+    if (stalledMs > 20000 && currentChannel) {
       stopStallDetector();
-      switchTo(currentChannel);
+      if (_channelFailed) return;
+      if (_loadRetryCount < MAX_AUTO_RETRIES) {
+        _loadRetryCount++;
+        console.info(`[StreamBox] Stall >20s — hard retry ${_loadRetryCount}/${MAX_AUTO_RETRIES}`);
+        switchTo(currentChannel, true);
+      } else {
+        _channelFailed = true;
+        console.info('[StreamBox] Max retries reached after stall — stream is unavailable');
+        bufferOvl.classList.remove('show');
+        showErr('This channel is currently unavailable or offline.');
+      }
     }
   }, 500);
 }
