@@ -213,6 +213,21 @@ const PH_CHANNELS = [
   flag:    '\uD83C\uDDF5\uD83C\uDDED',
 }));
 
+const US_CHANNELS = [
+  { name:'National Geographic HD',      logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fc/Natgeologo.svg/960px-Natgeologo.svg.png',             cat:'entertainment', url:'https://tvpass.org/live/NationalGeographicEast/hd' },
+  { name:'National Geographic Wild HD', logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/National_Geographic_Wild_logo.svg/960px-National_Geographic_Wild_logo.svg.png', cat:'entertainment', url:'https://tvpass.org/live/NationalGeographicWildEast/hd' },
+].map(ch => ({
+  id:      'us-local-' + ch.name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''),
+  name:    ch.name,
+  logo:    ch.logo,
+  cat:     ch.cat,
+  url:     ch.url,
+  drm:     null,
+  status:  'online',
+  country: 'US',
+  ctname:  'United States',
+  flag:    '\uD83C\uDDFA\uD83C\uDDF8',
+}));
 function showSkeletons(n=16){
   chList.innerHTML=Array.from({length:n},(_,i)=>`
     <li class="skel-item" style="animation-delay:${i*18}ms">
