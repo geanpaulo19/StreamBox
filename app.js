@@ -145,7 +145,6 @@ function toSlug(s){return s.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-
 
 const PH_CHANNELS = [
   // ── Major free-to-air ────────────────────────────────────────
-  { name:'Star TV Philippines',  logo:null,                                                                                                                                          cat:'entertainment', url:corsProxy('https://startvphilippines.sanmateocable.workers.dev/playlist.m3u8') },
   { name:'SineManila',           logo:'https://i.imgur.com/zcFUYC5.png',                                                                                                            cat:'entertainment', url:'https://live20.bozztv.com/giatv/giatv-sinemanila/sinemanila/chunks.m3u8' },
   { name:'3rsMovieBoxPh',        logo:'https://i.imgur.com/b4rjf8nl.png',                                                                                                           cat:'entertainment', url:'https://live20.bozztv.com/giatvplayout7/giatv-210731/tracks-v1a1/mono.ts.m3u8' },
   { name:'3rsSinePinoy',         logo:'https://i.imgur.com/OCS1l7Gl.jpg',                                                                                                           cat:'entertainment', url:'https://live20.bozztv.com/giatvplayout7/giatv-210267/tracks-v1a1/mono.ts.m3u8' },
