@@ -183,12 +183,14 @@ const PH_CHANNELS = [
   { name:'Curiostity Now',     logo:null,                                                        cat:'entertainment', url:'https://amg00170-curiositystream-amg00170c3-rakuten-us-2289.playouts.now.amagi.tv/playlist/amg00170-curiositystreamllcfast-curiositynowrow-rakutenus/playlist.m3u8' },
   { name:'Gordon Ramsay Hell Kitchen',     logo:null,                                                        cat:'entertainment', url:'https://jmp2.uk/plu-5b4e99f4423e067bd6df6903.m3u8' },
   { name:'BBC Earth (720p)',     logo:null,                                                        cat:'entertainment', url:'https://jmp2.uk/plu-656535fc2c46f30008870fae.m3u8' },
+  { name:'Pluto TV Action',     logo:null,                                                        cat:'entertainment', url:'https://jmp2.uk/plu-561d7d484dc7c8770484914a.m3u8' },
   
   // ── Kids ─────────────────────────────────────────────────────
   { name:'Moonbug',              logo:null,                                                                                                                                          cat:'kids',          url:'https://moonbug-rokuus.amagi.tv/playlist.m3u8' },
   { name:'Cartoon Channel PH',   logo:null,                                                                                                                                          cat:'kids',          url:'https://live20.bozztv.com/giatv/giatv-cartoonchannelph/cartoonchannelph/chunks.m3u8' },
   { name:'CBeebies',             logo:null,                                                                                                                                          cat:'kids',          url:'https://cdn4.skygo.mn/live/disk1/Cbeebies/HLSv3-FTA/Cbeebies.m3u8' },
   { name:'Pop',                  logo:null,                                                                                                                                          cat:'kids',          url:'https://amg01753-amg01753c6-samsung-au-6678.playouts.now.amagi.tv/playlist.m3u8' },
+  { name:'Nickelodeon',                  logo:null,                                                                                                                                          cat:'kids',          url:'https://jmp2.uk/plu-5ca673e0d0bd6c2689c94ce3.m3u8' },
 
   // ── General ───────────────────────────────────────────────────
   { name:'Mindanow Network TV',  logo:null,                                                                                                                                          cat:'general',       url:'https://streams.comclark.com/overlay/mindanow/playlist.m3u8' },
