@@ -179,7 +179,8 @@ const PH_CHANNELS = [
   { name:'RT Documentary',       logo:null,                                                                                                                                          cat:'entertainment', url:'https://rt-rtd.rttv.com/live/rtdoc/playlist_4500Kb.m3u8' },
   { name:'Game Show Network',    logo:null,                                                                                                                                          cat:'entertainment', url:'https://a-cdn.klowdtv.com/live2/gsn_720p/chunks.m3u8' },
   { name:'Cartoon Classics',     logo:'https://tse1.mm.bing.net/th/id/OIP.e3EnrHl_y0kw59ySjxxmQAAAAA?rs=1&pid=ImgDetMain',                                                        cat:'entertainment', url:'https://streams2.sofast.tv/v1/master/611d79b11b77e2f571934fd80ca1413453772ac7/d5543c06-5122-49a7-9662-32187f48aa2c/manifest.m3u8' },
-
+  { name:'BBC Earth (UK)',     logo:null,                                                        cat:'entertainment', url:'https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc126/bbcearthhdraw/bbcearthhdraw.m3u8' },
+  
   // ── Kids ─────────────────────────────────────────────────────
   { name:'Moonbug',              logo:null,                                                                                                                                          cat:'kids',          url:'https://moonbug-rokuus.amagi.tv/playlist.m3u8' },
   { name:'Cartoon Channel PH',   logo:null,                                                                                                                                          cat:'kids',          url:'https://live20.bozztv.com/giatv/giatv-cartoonchannelph/cartoonchannelph/chunks.m3u8' },
