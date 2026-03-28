@@ -182,6 +182,7 @@ const PH_CHANNELS = [
   { name:'BBC Earth (UK)',     logo:null,                                                        cat:'entertainment', url:'https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc126/bbcearthhdraw/bbcearthhdraw.m3u8' },
   { name:'Curiostity Now',     logo:null,                                                        cat:'entertainment', url:'https://amg00170-curiositystream-amg00170c3-rakuten-us-2289.playouts.now.amagi.tv/playlist/amg00170-curiositystreamllcfast-curiositynowrow-rakutenus/playlist.m3u8' },
   { name:'Gordon Ramsay Hell Kitchen',     logo:null,                                                        cat:'entertainment', url:'https://jmp2.uk/plu-5b4e99f4423e067bd6df6903.m3u8' },
+  { name:'BBC Earth (720p)',     logo:null,                                                        cat:'entertainment', url:'https://jmp2.uk/plu-656535fc2c46f30008870fae.m3u8' },
   
   // ── Kids ─────────────────────────────────────────────────────
   { name:'Moonbug',              logo:null,                                                                                                                                          cat:'kids',          url:'https://moonbug-rokuus.amagi.tv/playlist.m3u8' },
