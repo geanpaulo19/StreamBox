@@ -191,6 +191,7 @@ const PH_CHANNELS = [
   { name:'CBeebies',             logo:null,                                                                                                                                          cat:'kids',          url:'https://cdn4.skygo.mn/live/disk1/Cbeebies/HLSv3-FTA/Cbeebies.m3u8' },
   { name:'Pop',                  logo:null,                                                                                                                                          cat:'kids',          url:'https://amg01753-amg01753c6-samsung-au-6678.playouts.now.amagi.tv/playlist.m3u8' },
   { name:'Nickelodeon',                  logo:null,                                                                                                                                          cat:'kids',          url:'https://jmp2.uk/plu-5ca673e0d0bd6c2689c94ce3.m3u8' },
+  { name:'Pokemon',                  logo:null,                                                                                                                                          cat:'kids',          url:'https://jmp2.uk/plu-6675c7868768aa0008d7f1c7.m3u8' },
 
   // ── General ───────────────────────────────────────────────────
   { name:'Mindanow Network TV',  logo:null,                                                                                                                                          cat:'general',       url:'https://streams.comclark.com/overlay/mindanow/playlist.m3u8' },
