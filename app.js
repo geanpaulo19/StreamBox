@@ -180,6 +180,7 @@ const PH_CHANNELS = [
   { name:'Game Show Network',    logo:null,                                                                                                                                          cat:'entertainment', url:'https://a-cdn.klowdtv.com/live2/gsn_720p/chunks.m3u8' },
   { name:'Cartoon Classics',     logo:'https://tse1.mm.bing.net/th/id/OIP.e3EnrHl_y0kw59ySjxxmQAAAAA?rs=1&pid=ImgDetMain',                                                        cat:'entertainment', url:'https://streams2.sofast.tv/v1/master/611d79b11b77e2f571934fd80ca1413453772ac7/d5543c06-5122-49a7-9662-32187f48aa2c/manifest.m3u8' },
   { name:'BBC Earth (UK)',     logo:null,                                                        cat:'entertainment', url:'https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc126/bbcearthhdraw/bbcearthhdraw.m3u8' },
+  { name:'Curiostity Now',     logo:null,                                                        cat:'entertainment', url:'https://amg00170-curiositystream-amg00170c3-rakuten-us-2289.playouts.now.amagi.tv/playlist/amg00170-curiositystreamllcfast-curiositynowrow-rakutenus/playlist.m3u8' },
   
   // ── Kids ─────────────────────────────────────────────────────
   { name:'Moonbug',              logo:null,                                                                                                                                          cat:'kids',          url:'https://moonbug-rokuus.amagi.tv/playlist.m3u8' },
