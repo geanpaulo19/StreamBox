@@ -1021,14 +1021,14 @@ function switchTo(ch, _isAutoRetry = false) {
   /* Scroll the list so the selected row is visible */
   const idx = filteredChs.findIndex(c => c.id === ch.id);
   if (idx !== -1) {
-    const itemTop    = idx * ITEM_H;
-    const itemBottom = itemTop + ITEM_H;
-    const listTop    = chList.scrollTop;
-    const listBottom = listTop + chList.clientHeight;
-    if (itemTop < listTop) {
-      chList.scrollTop = itemTop - 8;
-    } else if (itemBottom > listBottom) {
-      chList.scrollTop = itemBottom - chList.clientHeight + 8;
+    const viewH = chList.clientHeight || 600;
+    const total = filteredChs.length;
+    const start = Math.max(0, Math.floor(chList.scrollTop / ITEM_H) - OVERSCAN);
+    const end = Math.min(total, Math.ceil((chList.scrollTop + viewH) / ITEM_H) + OVERSCAN);
+    if (idx < start) {
+      chList.scrollTop = Math.max(0, idx * ITEM_H - 8);
+    } else if (idx >= end) {
+      chList.scrollTop = Math.min((total - 1) * ITEM_H, idx * ITEM_H - viewH + ITEM_H + 8);
     }
   }
 
@@ -1393,6 +1393,18 @@ function resumeAfterFullscreen() {
 
   pausedAt = null;
 
+  /* Check if stream is still alive before destroying and recreating */
+  const isStreamAlive = (currentChannel.url.includes('.mpd'))
+    ? (video.readyState >= 3 && !video.paused)
+    : (hls && hls.media && video.readyState >= 3 && !video.paused);
+
+  if (isStreamAlive) {
+    /* Stream still playing — just resume */
+    video.play().catch(() => {});
+    return;
+  }
+
+  /* Stream died — do full reload */
   if (currentChannel.url.includes('.mpd')) {
     video.play().catch(() => {});
     return;
@@ -1821,54 +1833,21 @@ document.addEventListener('keydown',e=>{
 });
 
 
-/* ── Mobile background recovery ───────────────────────────────── */
+/* ── Tab visibility handling ───────────────────────────────────── */
 let _hiddenAt = null;
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     _hiddenAt = Date.now();
-    stopStallDetector();
-    clearTimeout(stallTimer);
-    bufferOvl.classList.remove('show');
     return;
   }
 
+  /* Tab is now visible */
   if (!currentChannel) { _hiddenAt = null; return; }
-  const away = _hiddenAt ? Date.now() - _hiddenAt : 0;
-  _hiddenAt = null;
 
-  if (away > 30000) {
-    /* Long absence — full reload to snap back to live edge */
-    switchTo(currentChannel);
-  } else if (away > 5000) {
-    /* Medium absence — mobile browsers drop the MSE buffer while backgrounded.
-       Simply calling play() won't recover a dead HLS session; we need to
-       reload the source. For DASH, play() is usually sufficient. */
-    if (currentChannel.url.includes('.mpd')) {
-      video.play().catch(() => {});
-      const t = setTimeout(() => {
-        if (video.paused || video.readyState < 3) switchTo(currentChannel);
-      }, 3000);
-      video.addEventListener('playing', () => clearTimeout(t), { once: true });
-    } else if (hls) {
-      /* Reload HLS from current position without a full switchTo */
-      hls.stopLoad();
-      hls.startLoad(-1); // -1 = live edge
-      video.play().catch(() => {});
-      const t = setTimeout(() => {
-        if (video.paused || video.readyState < 3) switchTo(currentChannel);
-      }, 4000);
-      video.addEventListener('playing', () => clearTimeout(t), { once: true });
-    } else {
-      /* Native HLS (Safari/iOS) — just reload src */
-      switchTo(currentChannel);
-    }
-  } else {
-    /* Short absence — try play, reload if it doesn't recover quickly */
+  /* Only auto-resume if it was NOT manually paused by the user */
+  const wasManuallyPaused = pausedAt !== null;
+  if (!wasManuallyPaused && video.paused && (video.src || hls)) {
     video.play().catch(() => {});
-    const t = setTimeout(() => {
-      if (video.paused || video.readyState < 3) switchTo(currentChannel);
-    }, 3000);
-    video.addEventListener('playing', () => clearTimeout(t), { once: true });
   }
 });
 
