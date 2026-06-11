@@ -151,8 +151,8 @@ const PH_CHANNELS = [
   { name:'SineManila',           logo:'https://i.imgur.com/zcFUYC5.png',                                                                                                            cat:'entertainment', url:'https://live20.bozztv.com/giatv/giatv-sinemanila/sinemanila/chunks.m3u8' },
   { name:'3rsMovieBoxPh',        logo:'https://i.imgur.com/b4rjf8nl.png',                                                                                                           cat:'entertainment', url:'https://live20.bozztv.com/giatvplayout7/giatv-210731/tracks-v1a1/mono.ts.m3u8' },
   { name:'3rsSinePinoy',         logo:'https://i.imgur.com/OCS1l7Gl.jpg',                                                                                                           cat:'entertainment', url:'https://live20.bozztv.com/giatvplayout7/giatv-210267/tracks-v1a1/mono.ts.m3u8' },
-  { name:'Golden Television',    logo:'https://imgur.com/9EGqMKY.png',                                                                                                              cat:'entertainment', url:'https://live20.bozztv.com/akamaissh101/ssh101/gldntventmt/playlist.m3u8' },
-
+  { name:'GMA Network',          logo:'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/philippines/gma-ph.png',                                            cat:'entertainment', url:'https://streams.comclark.com/pknsd/gma_7/playlist.m3u8' },
+  { name:'GTV',                  logo:'https://iyadtv.pages.dev/images/gtv_114.png',                                                                                          cat:'entertainment', url:'https://streams.comclark.com/pknsd/gtv/playlist.m3u8' },
   // ── News ─────────────────────────────────────────────────────
   { name:'Bilyonaryo Channel',   logo:null,                                                                                                                                          cat:'news',          url:'https://amg19223-amg19223c11-amgplt0352.playout.now3.amagi.tv/playlist/amg19223-amg19223c11-amgplt0352/playlist.m3u8' },
   { name:'Abante Radyo',         logo:null,                                                                                                                                          cat:'news',          url:'https://amg19223-amg19223c12-amgplt0352.playout.now3.amagi.tv/playlist/amg19223-amg19223c12-amgplt0352/playlist.m3u8' },
@@ -162,60 +162,58 @@ const PH_CHANNELS = [
   // ── Entertainment ─────────────────────────────────────────────
   { name:'AniPlus HD',           logo:null,                                                                                                                                          cat:'entertainment', url:'https://amg18481-amg18481c1-amgplt0352.playout.now3.amagi.tv/playlist/amg18481-amg18481c1-amgplt0352/playlist.m3u8' },
   { name:'Anime x HiDive',       logo:null,                                                                                                                                          cat:'entertainment', url:'https://amc-anime-x-hidive-1-us.tablo.wurl.tv/4300.m3u8' },
-  { name:'Ani-Blast',            logo:'https://i.ibb.co/Rpj2zNY7/1.png',                                                                                                            cat:'entertainment', url:'https://amg19223-amg19223c9-amgplt0019.playout.now3.amagi.tv/playlist/amg19223-amg19223c9-amgplt0019/playlist.m3u8' },
   { name:'Asian Crush',          logo:'https://iyadtv.pages.dev/images/asian_crush_28.png',                                                                                         cat:'entertainment', url:'https://cineverse.g-mana.live/media/1ebfbe30-c35c-4404-8bc5-0339d750eb58/mainManifest.m3u8' },
   { name:'Rakuten Viki',         logo:'https://tse1.mm.bing.net/th/id/OIP.14iQmo2HrOxiL10lttVslgAAAA?rs=1&pid=ImgDetMain&o=7&rm=3',                                                cat:'entertainment', url:'https://fd18f1cadd404894a31a3362c5f319bd.mediatailor.us-east-1.amazonaws.com/v1/master/04fd913bb278d8775298c26fdca9d9841f37601f/RakutenTV-eu_RakutenViki-1/playlist.m3u8' },
-  { name:'K-Movies',             logo:'https://th.bing.com/th/id/OIP.uvYKFBubGFR40NtgWh7W8wHaES?rs=1&pid=ImgDetMain',                                                             cat:'entertainment', url:'https://7732c5436342497882363a8cd14ceff4.mediatailor.us-east-1.amazonaws.com/v1/master/04fd913bb278d8775298c26fdca9d9841f37601f/Plex_NewMovies/playlist.m3u8' },
   { name:'Blast Movies',         logo:'https://i.ibb.co/G3sSvQmD/unnamed-2.png',                                                                                                   cat:'entertainment', url:'https://amg19223-amg19223c7-amgplt0351.playout.now3.amagi.tv/playlist/amg19223-amg19223c7-amgplt0351/playlist.m3u8' },
   { name:'Sony Cine',            logo:'https://th.bing.com/th/id/OIP._NGk-Rpn5n6TOVRIjvnZ6QHaHb?rs=1&pid=ImgDetMain',                                                             cat:'entertainment', url:'https://a-cdn.klowdtv.com/live1/cine_720p/chunks.m3u8' },
   { name:'Discovery Asia',       logo:'https://iyadtv.pages.dev/images/discovery_asia_71.png',                                                                                      cat:'entertainment', url:'https://cdn3.skygo.mn/live/disk1/Discovery_Asia/HLSv3-FTA/Discovery_Asia.m3u8' },
   { name:'Arirang',              logo:null,                                                                                                                                          cat:'entertainment', url:'https://amdlive-ch01-ctnd-com.akamaized.net/arirang_1ch/smil:arirang_1ch.smil/playlist.m3u8' },
   { name:'New K-Pop',            logo:null,                                                                                                                                          cat:'entertainment', url:'https://newidco-newkid-1-eu.xiaomi.wurl.tv/playlist.m3u8' },
   { name:'Vevo Pop',             logo:null,                                                                                                                                          cat:'entertainment', url:'https://amg00056-amg00056c6-rakuten-uk-3235.playouts.now.amagi.tv/playlist.m3u8' },
-  { name:'AMC+',                 logo:null,                                                                                                                                          cat:'entertainment', url:'https://bcovlive-a.akamaihd.net/ba853de442c140b7b3dc020001597c0a/us-east-1/6245817279001/playlist.m3u8' },
   { name:'AMC Presents',         logo:null,                                                                                                                                          cat:'entertainment', url:'https://amc-amcpresents-1-us.plex.wurl.tv/playlist.m3u8' },
   { name:'MovieSphere',          logo:null,                                                                                                                                          cat:'entertainment', url:'https://amg00353-lionsgatestudio-moviesphere-xumo-zh5u0.amagi.tv/playlist.m3u8' },
   { name:'Wild Earth',           logo:null,                                                                                                                                          cat:'entertainment', url:'https://wildearth-plex.amagi.tv/masterR1080p.m3u8' },
+  { name:'Love Nature',          logo:null,                                                                                                                                          cat:'entertainment', url:'https://aegis-cloudfront-1.tubi.video/6d6d0f24-8445-4b4c-bdf6-44f9e38beaa4/playlist.m3u8' },
+  { name:'Wild Planet',          logo:null,                                                                                                                                          cat:'entertainment', url:'https://d1h8whhtg5u7om.cloudfront.net/WildPlanet_GB.m3u8' },
+  { name:'Evolution Earth',      logo:null,                                                                                                                                          cat:'entertainment', url:'https://amg26277-amg26277c6-samsung-ph-11091.playouts.now.amagi.tv/playlist.m3u8' },
+  { name:'Smithsonian Selects',  logo:null,                                                                                                                                          cat:'entertainment', url:'https://jmp2.uk/plu-5f21ea08007a49000762d349.m3u8' },
+  { name:'Pluto TV Nature',      logo:null,                                                                                                                                          cat:'entertainment', url:'https://jmp2.uk/plu-5812bd9f249444e05d09cc4e.m3u8' },
+  { name:'Adventure Earth',      logo:null,                                                                                                                                          cat:'entertainment', url:'https://autentic-adventure-earth-1-eu.rakuten.wurl.tv/playlist.m3u8' },
+  { name:'CGTN Documentary',     logo:null,                                                                                                                                          cat:'entertainment', url:'https://amg00405-rakutentv-cgtndocumentary-rakuten-0ql8j.amagi.tv/master.m3u8' },
   { name:'RT Documentary',       logo:null,                                                                                                                                          cat:'entertainment', url:'https://rt-rtd.rttv.com/live/rtdoc/playlist_4500Kb.m3u8' },
   { name:'Game Show Network',    logo:null,                                                                                                                                          cat:'entertainment', url:'https://a-cdn.klowdtv.com/live2/gsn_720p/chunks.m3u8' },
   { name:'Cartoon Classics',     logo:'https://tse1.mm.bing.net/th/id/OIP.e3EnrHl_y0kw59ySjxxmQAAAAA?rs=1&pid=ImgDetMain',                                                        cat:'entertainment', url:'https://streams2.sofast.tv/v1/master/611d79b11b77e2f571934fd80ca1413453772ac7/d5543c06-5122-49a7-9662-32187f48aa2c/manifest.m3u8' },
-  { name:'BBC Earth (UK)',     logo:null,                                                        cat:'entertainment', url:'https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc126/bbcearthhdraw/bbcearthhdraw.m3u8' },
   { name:'Curiosity Now',     logo:null,                                                        cat:'entertainment', url:'https://amg00170-curiositystream-amg00170c3-rakuten-us-2289.playouts.now.amagi.tv/playlist/amg00170-curiositystreamllcfast-curiositynowrow-rakutenus/playlist.m3u8' },
   { name:'Gordon Ramsay Hell Kitchen',     logo:null,                                                        cat:'entertainment', url:'https://jmp2.uk/plu-5b4e99f4423e067bd6df6903.m3u8' },
-  { name:'BBC Earth (720p)',     logo:null,                                                        cat:'entertainment', url:'https://jmp2.uk/plu-656535fc2c46f30008870fae.m3u8' },
   { name:'Pluto TV Action',     logo:null,                                                        cat:'entertainment', url:'https://jmp2.uk/plu-561d7d484dc7c8770484914a.m3u8' },
+  { name:'FilAmTV Network',      logo:null,                                                        cat:'entertainment', url:'https://cdn.vegasplus.us/vegas/ftv/playlist.m3u8' },
+  { name:'InTravel',             logo:null,                                                        cat:'entertainment', url:'https://amg00861-amg00861c10-rakuten-uk-3152.playouts.now.amagi.tv/playlist.m3u8' },
+  { name:'Vegas Life TV',        logo:null,                                                        cat:'entertainment', url:'https://cdn.vegasplus.us/vegas/vltv/playlist.m3u8' },
   
   // ── Kids ─────────────────────────────────────────────────────
   { name:'Moonbug',              logo:null,                                                                                                                                          cat:'kids',          url:'https://moonbug-rokuus.amagi.tv/playlist.m3u8' },
   { name:'Cartoon Channel PH',   logo:null,                                                                                                                                          cat:'kids',          url:'https://live20.bozztv.com/giatv/giatv-cartoonchannelph/cartoonchannelph/chunks.m3u8' },
   { name:'CBeebies',             logo:null,                                                                                                                                          cat:'kids',          url:'https://cdn4.skygo.mn/live/disk1/Cbeebies/HLSv3-FTA/Cbeebies.m3u8' },
   { name:'Pop',                  logo:null,                                                                                                                                          cat:'kids',          url:'https://amg01753-amg01753c6-samsung-au-6678.playouts.now.amagi.tv/playlist.m3u8' },
-  { name:'Nickelodeon',                  logo:null,                                                                                                                                          cat:'kids',          url:'https://195.3.222.40/v2/stitch/embed/hls/channel/5ca673e0d0bd6c2689c94ce3livestitch/master.m3u8?deviceType=samsung-tvplus&deviceMake=samsung&deviceModel=samsung&deviceVersion=unknown&appVersion=unknown&deviceLat=0&deviceLon=0&deviceDNT=%7BTARGETOPT%7D&deviceId=%7BPSID%7D&advertisingId=%7BPSID%7D&us_privacy=1YNY&samsung_app_domain=%7BAPP_DOMAIN%7D&samsung_app_name=%7BAPP_NAME%7D&profileLimit=&profileFloor=&embedPartner=samsung-tvplus&masterJWTPassthrough=1&authToken=eyJhbGciOiJIUzI1NiIsImtpZCI6IjI4NWVkZDI0LWUzZGMtNGMxNi04YjUwLTE5ZGI0ODY3M2UwOSIsInR5cCI6IkpXVCJ9.eyJwYXJ0bmVyIjoic2Ftc3VuZ3R2cGx1cyIsImZlYXR1cmVzIjp7Im11bHRpUG9kQWRzIjp7ImNvaG9ydCI6IiIsImVuYWJsZWQiOnRydWV9LCJzdGl0Y2hlckhsc05nIjp7ImRlbXV4ZWRBdWRpbyI6ImppdCJ9LCJzdGl0Y2hlclBhcnRuZXJTaG93U2xhdGUiOnsiZW5hYmxlZCI6dHJ1ZX19LCJpc3MiOiJzZXJ2aWNlLXBhcnRuZXItYXV0aC5wbHV0by50diIsInN1YiI6InByaTp2MTpwbHV0bzpkZXZpY2VzOmMyRnRjM1Z1WjNSMmNHeDFjdz09IiwiYXVkIjoiKi5wbHV0by50diIsImV4cCI6MTc3NDc2MjA0OCwiaWF0IjoxNzc0Njc1NjQ4LCJqdGkiOiI3MjRhOWVmNS0xNGYyLTRlMjAtYmViMi1jNmY3OWY3ODQyMGIifQ.cChIvbJG_1Tm75TsqBeEHC3l0V3Kvs4gRHcU19I0rew&profilesFromStream=true&__cpo=aHR0cHM6Ly9zdGl0Y2hlci1pcHY0LnBsdXRvLnR2' },
   { name:'Pokemon',                  logo:null,                                                                                                                                          cat:'kids',          url:'https://jmp2.uk/plu-6675c7868768aa0008d7f1c7.m3u8' },
+  { name:'Boomerang',            logo:null,                                                                                                                                          cat:'kids',          url:'https://cdn4.skygo.mn/live/disk1/Boomerang/HLSv3-FTA/Boomerang.m3u8' },
 
   // ── General ───────────────────────────────────────────────────
-  { name:'Mindanow Network TV',  logo:null,                                                                                                                                          cat:'general',       url:'https://streams.comclark.com/overlay/mindanow/playlist.m3u8' },
+  { name:'Mindanow Network TV',  logo:null,                                                                                                                                          cat:'general',       url:'https://cdn.vegasplus.us/vegas/mmn01/playlist.m3u8' },
 
   // ── Sports ────────────────────────────────────────────────────
   { name:'DAZN Combat',          logo:null,                                                                                                                                          cat:'sports',        url:'https://dazn-combat-rakuten.amagi.tv/hls/amagi_hls_data_rakutenAA-dazn-combat-rakuten/CDN/master.m3u8' },
   { name:'The NBA Channel',          logo:null,                                                                                                                                          cat:'sports',        url:'https://dbrb49pjoymg4.cloudfront.net/10001/99951383/hls/playlist.m3u8?ads.xumo_channelId=99951383&ads._fw_ifa_type=&ads._fw_did=&ads.amznappId=&ads.lat=&ads.lon=&ads.os=&ads.osv=&ads.asnw=&ads.caid=NBAFASTChannel&ads.csid=xumo__NBAFASTChannel_ssai&ads._fw_is_lat=&ads._fw_us_privacy=&ads._fw_coppa=0&ads.genre=Sport,Sports,SA,SC,SE,SN&ads._fw_content_category=&ads._fw_content_language=&ads._fw_content_genre=Sport,Sports,SA,SC,SE,SN&ads._fw_content_rating=&ads.xumo_contentId=4185&ads.xumo_contentName=NBAFASTChannel&ads.xumo_providerId=4185&ads.xumo_providerName=NBAFASTChannel&ads._fw_deviceMake=&ads._fw_device_model=&ads.channelId=99951383&ads.xumo_platform=&ads.site_id=&ads.appName=xumo&ads.appVersion=&ads._fw_app_bundle=&ads._fw_app_store_url=' },
-  { name:'NBA TV',          logo:null,                                                                                                                                          cat:'sports',        url:'https://95.214.53.156/NBATV/index.m3u8?token=test&__cpo=aHR0cDovLzg5LjEwNS4yMjEuMTI3' },
   { name:'DAZN Ringside',        logo:null,                                                                                                                                          cat:'sports',        url:'https://aegis-cloudfront-1.tubi.video/bfad29e2-5bee-44f3-8256-127324e8b106/playlist.m3u8' },
   { name:'UFC TV',               logo:null,                                                                                                                                          cat:'sports',        url:'https://amg19223-amg19223c6-amgplt0351.playout.now3.amagi.tv/playlist/amg19223-amg19223c6-amgplt0351/playlist.m3u8' },
   { name:'FIFA+',                logo:null,                                                                                                                                          cat:'sports',        url:'https://ca333c39.wurl.com/v1/sysdata_s_p_a_fifa_6/ohlscdn_us/latest/main/hls/playlist.m3u8' },
   { name:'Tennis+',              logo:null,                                                                                                                                          cat:'sports',        url:'https://amg01935-amg01935c1-amgplt0352.playout.now3.amagi.tv/playlist/amg01935-amg01935c1-amgplt0352/playlist.m3u8' },
   { name:'Red Bull TV',          logo:'https://i.ibb.co/cK5FsbyM/unnamed-1.png',                                                                                                   cat:'sports',        url:'https://d3k3xxewhm1my2.cloudfront.net/playlist.m3u8' },
   { name:'Billiard TV',          logo:null,                                                                                                                                          cat:'sports',        url:'https://1621590671.rsc.cdn77.org/HLS/BILLIARDTV_SCTE.m3u8' },
-  { name:'BeIN Sports 2',        logo:null,                                                                                                                                          cat:'sports',        url:corsProxy('https://hls.iill.top/api/beIN-Sports-2/index.m3u8') },
-  { name:'BeIN Sports 3',        logo:null,                                                                                                                                          cat:'sports',        url:corsProxy('https://hls.iill.top/api/beIN-Sports-3/index.m3u8') },
   { name:'BeIN Sports XTRA',        logo:null,                                                                                                                                          cat:'sports',        url:('https://bein-beinxtrasports-firetv.amagi.tv/playlist.m3u8') },
   { name:'NHL',        logo:null,                                                                                                                                          cat:'sports',        url:('https://nhl-firetv.amagi.tv/playlist.m3u8') },
   { name:'Fox Sports',        logo:null,                                                                                                                                          cat:'sports',        url:('https://d1jzu95oc8fgt3.cloudfront.net/FOX_Sports.m3u8') },
-  { name:'TNT Sports 1',         logo:null,                                                                                                                                          cat:'sports',        url:corsProxy('https://hls.iill.top/api/TNT-Sports-1/index.m3u8') },
-  { name:'TNT Sports 2',         logo:null,                                                                                                                                          cat:'sports',        url:corsProxy('https://hls.iill.top/api/TNT-Sports-2/index.m3u8') },
-  { name:'TNT Sports 3',         logo:null,                                                                                                                                          cat:'sports',        url:corsProxy('https://hls.iill.top/api/TNT-Sports-3/index.m3u8') },
-  { name:'TNT Sports 4',         logo:null,                                                                                                                                          cat:'sports',        url:corsProxy('https://hls.iill.top/api/TNT-Sports-4/index.m3u8') },
-  { name:'Sky Sports F1',        logo:'https://upload.wikimedia.org/wikipedia/en/thumb/d/d3/Sky_Sports_F1.svg/1200px-Sky_Sports_F1.svg.png',                                       cat:'sports',        url:corsProxy('https://hls.iill.top/api/Sky-Sports-F1/index.m3u8') },
+
 ].map(ch => ({
   id:      'ph-local-' + ch.name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''),
   name:    ch.name,
@@ -249,7 +247,7 @@ async function detectCountry() {
         try {
           const r = await fetch(
             `https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json`,
-            { signal: AbortSignal.timeout(4000) }
+            { signal: typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(4000) : undefined }
           );
           const j = await r.json();
           const code = j?.address?.country_code?.toUpperCase() || null;
@@ -978,10 +976,14 @@ searchInput.addEventListener('keydown', e => {
 });
 
 /* Close dropdown on blur (with slight delay to allow mousedown on items) */
-searchInput.addEventListener('blur', () => setTimeout(closeSearchDropdown, 150));
+let _blurTimer = null;
+searchInput.addEventListener('blur', () => {
+  _blurTimer = setTimeout(closeSearchDropdown, 150);
+});
 
 /* Reopen if input regains focus and has a value */
 searchInput.addEventListener('focus', () => {
+  clearTimeout(_blurTimer);
   if (searchInput.value.trim()) handleSearch(searchInput.value);
 });
 
@@ -1061,7 +1063,7 @@ function switchTo(ch, _isAutoRetry = false) {
      then give up and show the error overlay. */
   clearTimeout(_switchGuardTimer);
   if (!wasRestoring) {
-    _switchGuardTimer = setTimeout(() => {
+    const guardTimer = setTimeout(() => {
       if (currentChannel?.id !== ch.id || isPlaying || !bufferOvl.classList.contains('show')) return;
       if (_channelFailed) return;  // stall detector already gave up
       if (_loadRetryCount < MAX_AUTO_RETRIES) {
@@ -1075,7 +1077,9 @@ function switchTo(ch, _isAutoRetry = false) {
         showErr('This channel is currently unavailable or offline.');
       }
     }, 12000);
-    video.addEventListener('playing', () => clearTimeout(_switchGuardTimer), { once: true });
+    _switchGuardTimer = guardTimer;
+    const onPlaying = () => clearTimeout(guardTimer);
+    video.addEventListener('playing', onPlaying, { once: true });
   }
 
   renderSuggestions();
@@ -1180,7 +1184,19 @@ function playDash(ch) {
     if (e?.error === 'capability' || e?.error === 'mediasource') return;
     console.warn('[StreamBox] DASH error', e);
     showBuf(false);
-    showErr('Stream error. Channel may be offline or geo-blocked.');
+    stopStallDetector();
+    clearTimeout(_switchGuardTimer);
+    if (_channelFailed) return;
+    if (_loadRetryCount < MAX_AUTO_RETRIES) {
+      _loadRetryCount++;
+      console.info(`[StreamBox] DASH error — retry ${_loadRetryCount}/${MAX_AUTO_RETRIES}`);
+      switchTo(currentChannel, true);
+    } else {
+      _channelFailed = true;
+      bufferOvl.classList.remove('show');
+      console.info('[StreamBox] DASH error — max retries reached');
+      showErr('Stream error. Channel may be offline or geo-blocked.');
+    }
   });
 
   dashPlayer.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, () => {
@@ -1403,6 +1419,9 @@ function resumeAfterFullscreen() {
     video.play().catch(() => {});
     return;
   }
+
+  _channelFailed  = false;
+  _loadRetryCount = 0;
 
   /* Stream died — do full reload */
   if (currentChannel.url.includes('.mpd')) {
