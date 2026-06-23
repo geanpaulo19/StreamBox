@@ -241,11 +241,24 @@
         <div class="info-ch-sub" id="info-sub">Free Live TV · Worldwide</div>
       </div>
       <div class="info-actions">
-        <button class="info-btn" id="mute-btn" aria-label="Toggle mute" title="Toggle Mute">
+        <div class="volume-group">
+          <button class="info-btn" id="mute-btn" aria-label="Toggle mute" title="Toggle Mute">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+            </svg>
+          </button>
+          <input type="range" id="volume-slider" class="volume-slider" min="0" max="1" step="0.02" value="1" aria-label="Volume" title="Volume">
+        </div>
+        <button class="info-btn" id="quality-btn" aria-label="Stream quality" title="Quality" hidden>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
-            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+            <line x1="6" y1="20" x2="6" y2="13"/><line x1="12" y1="20" x2="12" y2="8"/><line x1="18" y1="20" x2="18" y2="4"/>
+          </svg>
+        </button>
+        <button class="info-btn" id="pip-btn" aria-label="Picture in Picture" title="Picture in Picture">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="4" width="20" height="16" rx="2"/><rect x="12" y="11.5" width="7.5" height="5.5" rx="1" fill="currentColor" stroke="none"/>
           </svg>
         </button>
         <button class="info-btn" id="fullscreen-btn" aria-label="Fullscreen" title="Fullscreen">
@@ -273,6 +286,16 @@
                 <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
                 <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
                 <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+              </svg>
+            </button>
+            <button class="sug-btn" id="mob-quality-btn" aria-label="Stream quality" hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="6" y1="20" x2="6" y2="13"/><line x1="12" y1="20" x2="12" y2="8"/><line x1="18" y1="20" x2="18" y2="4"/>
+              </svg>
+            </button>
+            <button class="sug-btn" id="mob-pip-btn" aria-label="Picture in Picture">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="4" width="20" height="16" rx="2"/><rect x="12" y="11.5" width="7.5" height="5.5" rx="1" fill="currentColor" stroke="none"/>
               </svg>
             </button>
             <button class="sug-btn" id="mob-fullscreen-btn" aria-label="Fullscreen">
@@ -378,7 +401,7 @@
     <div class="about-meta">
       <span id="about-channel-count">— channels available</span>
       <span class="about-dot">·</span>
-      <span>Version 1.1.0</span>
+      <span>Version 1.2.0</span>
       <span class="about-dot">·</span>
       <span>Open Source</span>
     </div>
