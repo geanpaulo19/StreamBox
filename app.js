@@ -17,7 +17,6 @@ let hls            = null;
 let dashPlayer     = null;
 let retryTarget       = null;
 let isMuted           = true;
-let epgTimer          = null;
 let _switchGuardTimer = null;
 let _loadRetryCount   = 0;      // how many auto-retries we've done for the current channel
 let _channelFailed    = false;  // true once we've given up — blocks further auto-retries
@@ -1202,77 +1201,6 @@ function hexToBase64url(hex) {
   const bytes = new Uint8Array(hex.match(/.{2}/g).map(b => parseInt(b, 16)));
   return btoa(String.fromCharCode(...bytes))
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-function updateEpgUI(prog) {
-  /* Badge programme line */
-  const nowProg  = $('now-programme');
-  const progTitle = $('now-prog-title');
-  const progFill  = $('now-prog-fill');
-
-  /* Info bar EPG strip */
-  const infoEpg   = $('info-epg');
-  const epgTitle  = $('info-epg-title');
-  const epgTime   = $('info-epg-time');
-  const epgFill   = $('info-epg-fill');
-
-  if (!prog) {
-    if (nowProg)  nowProg.hidden  = true;
-    if (infoEpg)  infoEpg.hidden  = true;
-    return;
-  }
-
-  const nowSec   = Math.floor(Date.now() / 1000);
-  const duration = prog.stop_utc - prog.start_utc;
-  const elapsed  = Math.max(0, nowSec - prog.start_utc);
-  const pct      = duration > 0 ? Math.min(100, (elapsed / duration) * 100) : 0;
-
-  const startStr = fmtTime(prog.start_utc);
-  const endStr   = fmtTime(prog.stop_utc);
-  const timeStr  = `${startStr}–${endStr}`;
-
-  /* Now Playing badge */
-  if (nowProg && progTitle && progFill) {
-    progTitle.textContent = prog.title || '';
-    progFill.style.width  = `${pct}%`;
-    nowProg.hidden = false;
-  }
-
-  /* Info bar */
-  if (infoEpg && epgTitle && epgTime && epgFill) {
-    epgTitle.textContent = prog.title || '';
-    epgTime.textContent  = timeStr;
-    epgFill.style.width  = `${pct}%`;
-    infoEpg.hidden = false;
-  }
-}
-
-function fmtTime(utcSec) {
-  const d = new Date(utcSec * 1000);
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-}
-
-async function loadEpg(ch) {
-  /* fetchEpg is not yet implemented — bail out silently */
-  if (typeof fetchEpg !== 'function') return;
-
-  /* Clear previous */
-  clearInterval(epgTimer);
-  const nowProg = $('now-programme');
-  const infoEpg = $('info-epg');
-  if (nowProg) nowProg.hidden = true;
-  if (infoEpg) infoEpg.hidden = true;
-
-  const prog = await fetchEpg(ch);
-  if (!prog || currentChannel?.id !== ch.id) return; /* stale — user switched channel */
-
-  updateEpgUI(prog);
-
-  /* Tick progress bar every 30s */
-  epgTimer = setInterval(() => {
-    if (currentChannel?.id !== ch.id) { clearInterval(epgTimer); return; }
-    updateEpgUI(prog);
-  }, 30000);
 }
 
 function bindHlsEvents() {
