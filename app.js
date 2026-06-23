@@ -6,19 +6,6 @@ const EP = {
   countries: 'https://iptv-org.github.io/api/countries.json',
 };
 
-const PROXY_BASE = 'https://streambox-proxy.geanpaulofrancois.workers.dev/proxy';
-
-const CORS_HOSTS = /hls\.iill\.top/;
-
-function corsProxy(url) {
-  if (!url) return url;
-  try {
-    const p = new URL(url);
-    if (!CORS_HOSTS.test(p.host)) return url;
-    return `${PROXY_BASE}/${p.host}${p.pathname}${p.search}`;
-  } catch { return url; }
-}
-
 /* ─── State ───────────────────────────────────────────────────── */
 let allChannels    = [];   // full merged list (all countries)
 let filteredChs    = [];   // current view after country + cat + search
@@ -127,24 +114,6 @@ function mapCat(cats = []) {
   }
   return 'general';
 }
-
-function parseM3U(text) {
-  const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
-  const out=[], attr=(l,k)=>{const m=l.match(new RegExp(String.raw`${k}="([^"]*)"`,'i'));return m?m[1].trim():'';};
-  let meta=null;
-  for(const line of lines){
-    if(line.startsWith('#EXTINF')){
-      const c=line.lastIndexOf(',');
-      meta={id:attr(line,'tvg-id'),name:attr(line,'tvg-name')||(c>=0?line.slice(c+1).trim():''),logo:attr(line,'tvg-logo')||null,group:attr(line,'group-title')||''};
-    } else if(meta&&!line.startsWith('#')&&line.startsWith('http')){
-      if(!line.endsWith('.mpd'))out.push({id:meta.id||toSlug(meta.name),name:meta.name||'Unknown',logo:meta.logo,cat:mapCat([meta.group]),url:line,country:'',flag:''});
-      meta=null;
-    }
-  }
-  return out;
-}
-
-function toSlug(s){return s.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');}
 
 const PH_CHANNELS = [
   // ── Major free-to-air ────────────────────────────────────────
@@ -335,7 +304,7 @@ async function loadAll() {
 
         mapped.push({
           id:      ch.id,
-          name:    ch.name,
+          name:    ch.name || 'Unknown',
           logo:    ch.logo || null,
           cat:     mapCat(ch.categories || []),
           url:     st.url,
@@ -1140,13 +1109,33 @@ function playHls(ch) {
   }
 }
 
+/* ── DASH loader (lazy) ─────────────────────────────────────────
+   dash.js is only needed for .mpd streams, which are rare. Load it on
+   first use instead of blocking every page load with a large script. */
+let _dashLoading = null;
+function ensureDashLoaded() {
+  if (window.dashjs) return Promise.resolve();
+  if (_dashLoading) return _dashLoading;
+  _dashLoading = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/dashjs@4/dist/dash.all.min.js';
+    s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => { _dashLoading = null; reject(new Error('dash.js failed to load')); };
+    document.head.appendChild(s);
+  });
+  return _dashLoading;
+}
+
 /* ── DASH + ClearKey DRM playback ──────────────────────────────── */
 function playDash(ch) {
   /* Tear down any active HLS player */
   if (hls) { hls.destroy(); hls = null; }
 
   if (!window.dashjs) {
-    showErr('DASH playback is not supported in this browser.');
+    ensureDashLoaded()
+      .then(() => { if (currentChannel?.id === ch.id) playDash(ch); })
+      .catch(() => showErr('DASH playback is not supported in this browser.'));
     return;
   }
 
@@ -1806,28 +1795,6 @@ function openAbout() {
   aboutOverlay.classList.add('open');
   $('about-channel-count').textContent = `${allChannels.length.toLocaleString()} channels available`;
   document.body.style.overflow = 'hidden';
-
-  /* Wire copy account number button (once) */
-  const copyBtn   = $('copy-acct-btn');
-  const copyLabel = $('copy-acct-label');
-  if (copyBtn && !copyBtn._wired) {
-    copyBtn._wired = true;
-    copyBtn.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText('017356058551');
-      } catch {
-        const range = document.createRange();
-        range.selectNode($('acct-number'));
-        window.getSelection().removeAllRanges();
-        window.getSelection().addRange(range);
-        document.execCommand('copy');
-        window.getSelection().removeAllRanges();
-      }
-      copyLabel.textContent = 'Copied!';
-      copyBtn.classList.add('copied');
-      setTimeout(() => { copyLabel.textContent = 'Copy'; copyBtn.classList.remove('copied'); }, 2000);
-    });
-  }
 }
 function closeAbout() {
   aboutOverlay.classList.remove('open');
