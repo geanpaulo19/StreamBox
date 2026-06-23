@@ -4,6 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
+  <!-- Content Security Policy: blocks any third-party script/ad/iframe injection.
+       Scripts limited to self + jsdelivr (hls.js/dash.js). Media/images/fetch
+       stay open over HTTPS for arbitrary IPTV CDNs and channel logos. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' blob: https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; media-src 'self' blob: https:; connect-src 'self' https:; worker-src 'self' blob:; child-src blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
 
   <title>StreamBox — Free Live TV Worldwide</title>
   <meta name="description" content="Watch 8,000+ free live TV channels from every country. No subscription, no login, no ads. Stream news, sports, entertainment, kids, and more in your browser.">
@@ -73,8 +78,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
-  <script src="https://cdn.dashjs.org/latest/dash.all.min.js"></script>
+  <!-- Pinned to major v1 — gets patch/minor fixes but never an unexpected breaking v2.
+       dash.js is loaded on demand (see app.js) only if a DASH/.mpd stream is ever played. -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
 </head>
 <body>
 <div id="app">
@@ -361,37 +367,6 @@
 
 
     <section class="about-section">
-      <h2 class="about-section-title">Bank Transfer (Philippines)</h2>
-      <p class="about-text">You can also send via GCash or bank transfer using the QR code or account details below.</p>
-      <div class="donate-qr-wrap">
-        <img src="images/qrph.jpg" alt="QR Code for GoTyme Bank" class="donate-qr">
-        <div class="donate-bank">
-          <div class="donate-bank-row">
-            <span class="donate-bank-label">Bank</span>
-            <span class="donate-bank-value">GoTyme Bank</span>
-          </div>
-          <div class="donate-bank-row">
-            <span class="donate-bank-label">Name</span>
-            <span class="donate-bank-value">Gean Paulo Paguirigan</span>
-          </div>
-          <div class="donate-bank-row">
-            <span class="donate-bank-label">Account Number</span>
-            <div class="donate-acct-row">
-              <span class="donate-bank-value donate-bank-acct" id="acct-number">017356058551</span>
-              <button class="donate-copy-btn" id="copy-acct-btn" title="Copy account number" aria-label="Copy account number">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                <span id="copy-acct-label">Copy</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <div class="about-divider"></div>
-
-
-    <section class="about-section">
       <h2 class="about-section-title">Disclaimer</h2>
       <p class="about-text">StreamBox aggregates publicly available IPTV streams and does not host, own, or control any of the content. Some channels may be unavailable, geo-restricted, or offline at any given time. This is beyond our control and depends entirely on the upstream stream provider.</p>
       <p class="about-text">StreamBox is intended for personal, non-commercial use only. All channel names, logos, and trademarks are the property of their respective owners.</p>
@@ -403,7 +378,7 @@
     <div class="about-meta">
       <span id="about-channel-count">— channels available</span>
       <span class="about-dot">·</span>
-      <span>Version 1.0.0</span>
+      <span>Version 1.1.0</span>
       <span class="about-dot">·</span>
       <span>Open Source</span>
     </div>
