@@ -10,7 +10,7 @@
    ============================================================ */
 'use strict';
 
-const CACHE     = 'streambox-v1';
+const CACHE     = 'streambox-v2';
 const SW_SCOPE  = self.registration.scope;  // https://tv.geanpaulo.com/
 
 const PRECACHE = [
