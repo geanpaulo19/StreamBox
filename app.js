@@ -25,7 +25,11 @@ const MAX_AUTO_RETRIES = 2;     // show error after this many failed attempts
 /* ─── Persistence ─────────────────────────────────────────────── */
 const LS_LAST    = 'sb_last_channel';
 const LS_FAVS    = 'sb_favourites';
+const LS_HIST    = 'sb_history';
+const LS_VOL     = 'sb_volume';
+const MAX_HISTORY = 30;
 let   favourites = new Set(JSON.parse(localStorage.getItem(LS_FAVS) || '[]'));
+let   history    = (() => { try { return JSON.parse(localStorage.getItem(LS_HIST) || '[]'); } catch { return []; } })();
 
 function saveFavs() {
   try { localStorage.setItem(LS_FAVS, JSON.stringify([...favourites])); } catch(e){}
@@ -35,6 +39,11 @@ function saveLastChannel(id) {
 }
 function loadLastChannelId() {
   try { return localStorage.getItem(LS_LAST); } catch(e){ return null; }
+}
+/* Most-recent-first list of channel IDs the user has watched (deduped, capped). */
+function pushHistory(id) {
+  history = [id, ...history.filter(x => x !== id)].slice(0, MAX_HISTORY);
+  try { localStorage.setItem(LS_HIST, JSON.stringify(history)); } catch(e){}
 }
 function toggleFav(id) {
   if (favourites.has(id)) favourites.delete(id);
@@ -102,7 +111,7 @@ const CAT_MAP = {
 
 const TAB_ORDER = ['general','news','entertainment','sports','kids'];
 const TAB_LABEL = {
-  all:'All', favs:'Favourites', general:'General', news:'News',
+  all:'All', favs:'Favourites', recent:'Recent', general:'General', news:'News',
   entertainment:'Entertainment', sports:'Sports', kids:'Kids',
 };
 
@@ -249,6 +258,14 @@ async function loadAll() {
     favTab.dataset.cat = 'favs';
     favTab.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-.05em;margin-right:3px"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>Favs`;
     $('cat-tabs').prepend(favTab);
+  }
+  if (!$('cat-tab-recent')) {
+    const recentTab = document.createElement('button');
+    recentTab.className = 'cat-tab';
+    recentTab.id = 'cat-tab-recent';
+    recentTab.dataset.cat = 'recent';
+    recentTab.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-.05em;margin-right:3px"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>Recent`;
+    $('cat-tabs').prepend(recentTab);
   }
 
   const timeout = ms => AbortSignal.timeout ? AbortSignal.timeout(ms) : undefined;
@@ -469,6 +486,8 @@ function renderList(channels) {
   if (!channels.length) {
     const msg = currentCat === 'favs'
       ? `<li style="padding:32px 14px;text-align:center;color:var(--txt-3);font-size:.8rem;line-height:1.9">No favourites yet.<br>Tap ♡ on any channel to save it here.</li>`
+      : currentCat === 'recent'
+      ? `<li style="padding:32px 14px;text-align:center;color:var(--txt-3);font-size:.8rem;line-height:1.9">No history yet.<br>Channels you watch will appear here.</li>`
       : `<li style="padding:32px 14px;text-align:center;color:var(--txt-3);font-size:.8rem;line-height:1.8">No channels found.<br>Try a different search, country, or category.</li>`;
     chList.innerHTML = msg;
     vsTopSpacer = vsBottomSpacer = null;
@@ -714,10 +733,17 @@ function applyFilters() {
   filteredChs = allChannels.filter(ch => {
     if (currentCountry !== 'all' && ch.country !== currentCountry) return false;
     if (currentCat === 'favs') return favourites.has(ch.id);
+    if (currentCat === 'recent') return history.includes(ch.id);
     if (currentCat !== 'all' && ch.cat !== currentCat) return false;
     if (q && !ch._nameL.includes(q) && !ch._ctnameL.includes(q))  return false;
     return true;
   });
+
+  /* Recent tab: order by most-recently-watched, not the default A–Z/online sort */
+  if (currentCat === 'recent') {
+    const order = new Map(history.map((id, i) => [id, i]));
+    filteredChs.sort((a, b) => (order.get(a.id) ?? Infinity) - (order.get(b.id) ?? Infinity));
+  }
 
   renderList(filteredChs);
 
@@ -980,6 +1006,11 @@ function switchTo(ch, _isAutoRetry = false) {
   retryTarget    = ch;
   pausedAt       = null;
   saveLastChannel(ch.id);
+  /* Record in watch history on genuine switches (not silent auto-retries) */
+  if (!_isAutoRetry) {
+    pushHistory(ch.id);
+    if (currentCat === 'recent') applyFilters();
+  }
 
   /* Mark active by data-id — works regardless of virtual scroll window */
   document.querySelectorAll('.channel-item').forEach(el => {
@@ -1094,6 +1125,7 @@ function makeHlsConfig() {
 
 function playHls(ch) {
   if (dashPlayer) { try { dashPlayer.destroy(); } catch(e){} dashPlayer = null; }
+  setQualityAvailable(false);   // re-enabled once the manifest reveals >1 rendition
 
   if (Hls.isSupported()) {
     if (hls) { hls.destroy(); hls = null; }
@@ -1130,6 +1162,7 @@ function ensureDashLoaded() {
 function playDash(ch) {
   /* Tear down any active HLS player */
   if (hls) { hls.destroy(); hls = null; }
+  setQualityAvailable(false);   // quality picker is HLS-only
 
   if (!window.dashjs) {
     ensureDashLoaded()
@@ -1207,9 +1240,16 @@ function bindHlsEvents() {
   let mediaErrCount  = 0;
   let httpErrHandled = false;  // prevent duplicate handling of repeated 403/401 events
 
-  hls.on(Hls.Events.MANIFEST_PARSED, () => {
+  hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
     mediaErrCount = 0;
     showBuf(false); showBadge(currentChannel); video.play().catch(() => {});
+    /* Offer the quality picker only when there's more than one rendition */
+    setQualityAvailable((data?.levels?.length || hls.levels?.length || 0) > 1);
+  });
+
+  /* Keep the menu's active highlight in sync if it's open during an ABR switch */
+  hls.on(Hls.Events.LEVEL_SWITCHED, () => {
+    if (qualityMenu && !qualityMenu.hidden) buildQualityMenu();
   });
 
   hls.on(Hls.Events.FRAG_LOADED, () => {
@@ -1452,6 +1492,41 @@ function syncMuteBtn(){
   /* Show/hide the in-player mute hint */
   const hint = $('mute-hint');
   if (hint) hint.hidden = !(isMuted && currentChannel);
+  syncVolumeUI();
+}
+
+/* ── Volume slider ──────────────────────────────────────────────
+   Reflects the muted/volume state and lets the user fine-tune level.
+   Note: iOS ignores programmatic video.volume, so the slider is
+   desktop-only (it lives in the desktop info-bar, hidden on mobile). */
+const volumeSlider = $('volume-slider');
+let _lastVolume = (() => {
+  const v = parseFloat(localStorage.getItem(LS_VOL));
+  return (isFinite(v) && v > 0 && v <= 1) ? v : 1;
+})();
+
+function syncVolumeUI() {
+  if (!volumeSlider) return;
+  const shown = isMuted ? 0 : video.volume;
+  volumeSlider.value = String(shown);
+  volumeSlider.style.setProperty('--vol-fill', `${shown * 100}%`);
+}
+
+video.volume = _lastVolume;   // applies once the user unmutes
+if (volumeSlider) {
+  volumeSlider.value = String(_lastVolume);
+  volumeSlider.addEventListener('input', () => {
+    const v = parseFloat(volumeSlider.value);
+    video.volume = v;
+    if (v > 0) {
+      _lastVolume = v;
+      try { localStorage.setItem(LS_VOL, String(v)); } catch(e){}
+      isMuted = false; video.muted = false;
+    } else {
+      isMuted = true; video.muted = true;
+    }
+    syncMuteBtn();
+  });
 }
 
 function showToast(msg, ms=2400){
@@ -1465,13 +1540,16 @@ $('retry-btn').addEventListener('click',()=>{ if(!retryTarget) return; _loadRetr
 $('mute-hint').addEventListener('click', () => {
   isMuted = false;
   video.muted = false;
-  if (video.volume === 0) video.volume = 1;
+  if (video.volume === 0) video.volume = _lastVolume;
   syncMuteBtn();
   showToast('🔊 Unmuted');
 });
 
 function toggleMute(){
-  isMuted=!isMuted; video.muted=isMuted; syncMuteBtn();
+  isMuted=!isMuted;
+  video.muted=isMuted;
+  if (!isMuted && video.volume === 0) video.volume = _lastVolume;
+  syncMuteBtn();
   showToast(isMuted?'🔇 Muted':'🔊 Unmuted');
 }
 /* ── Fullscreen — works on both desktop and mobile (iOS + Android) */
@@ -1674,6 +1752,119 @@ $('mob-mute-btn').addEventListener('click', toggleMute);
 $('mob-fullscreen-btn').addEventListener('click', toggleFullscreen);
 $('playpause-btn').addEventListener('click', togglePlayPause);
 
+/* ── Picture-in-Picture ─────────────────────────────────────────
+   Standard API on Chrome/Edge/Firefox/Android; webkit presentation
+   mode on iOS Safari. Button is hidden where unsupported. */
+function pipSupported() {
+  return (('pictureInPictureEnabled' in document) && document.pictureInPictureEnabled)
+      || (typeof video.webkitSupportsPresentationMode === 'function'
+          && video.webkitSupportsPresentationMode('picture-in-picture'));
+}
+async function togglePiP() {
+  if (!currentChannel) { showToast('▶ Start a channel first'); return; }
+  try {
+    if (typeof video.webkitSetPresentationMode === 'function'
+        && !('pictureInPictureEnabled' in document)) {
+      /* iOS Safari */
+      const mode = video.webkitPresentationMode === 'picture-in-picture' ? 'inline' : 'picture-in-picture';
+      video.webkitSetPresentationMode(mode);
+      return;
+    }
+    if (document.pictureInPictureElement) await document.exitPictureInPicture();
+    else                                  await video.requestPictureInPicture();
+  } catch (e) {
+    showToast('⚠ Picture-in-Picture unavailable right now');
+  }
+}
+for (const id of ['pip-btn','mob-pip-btn']) {
+  const btn = $(id); if (!btn) continue;
+  if (!pipSupported() || video.disablePictureInPicture) { btn.hidden = true; continue; }
+  btn.addEventListener('click', togglePiP);
+}
+
+/* ── Quality selector (HLS rendition picker) ─────────────────────
+   Reads hls.js levels live and lets the user lock a resolution or
+   return to Auto (ABR). Hidden for native Safari HLS / DASH / single-
+   rendition streams where there's nothing to choose. */
+let qualityMenu = null;
+
+function setQualityAvailable(on) {
+  for (const id of ['quality-btn','mob-quality-btn']) {
+    const btn = $(id); if (btn) btn.hidden = !on;
+  }
+  if (!on) closeQualityMenu();
+}
+
+function levelLabel(level, i) {
+  if (level?.height)  return `${level.height}p`;
+  if (level?.bitrate) return `${Math.round(level.bitrate / 1000)} kbps`;
+  return `Level ${i + 1}`;
+}
+
+function buildQualityMenu() {
+  if (!qualityMenu) {
+    qualityMenu = document.createElement('div');
+    qualityMenu.id = 'quality-menu';
+    qualityMenu.className = 'quality-menu';
+    qualityMenu.hidden = true;
+    document.body.appendChild(qualityMenu);
+    qualityMenu.addEventListener('click', e => {
+      const item = e.target.closest('[data-level]');
+      if (!item || !hls) return;
+      hls.currentLevel = parseInt(item.dataset.level, 10);   // -1 = Auto
+      closeQualityMenu();
+    });
+  }
+  const levels = hls?.levels || [];
+  const auto   = hls ? hls.autoLevelEnabled : true;
+  const cur    = hls ? hls.currentLevel : -1;
+  const activeLvl = (auto && levels[cur]) ? ` <span class="q-cur">${levelLabel(levels[cur])}</span>` : '';
+
+  let rows = `<button class="quality-item${auto ? ' active' : ''}" data-level="-1">Auto${activeLvl}</button>`;
+  levels
+    .map((l, i) => ({ l, i }))
+    .sort((a, b) => (b.l.height || b.l.bitrate || 0) - (a.l.height || a.l.bitrate || 0))
+    .forEach(({ l, i }) => {
+      const on = !auto && cur === i;
+      rows += `<button class="quality-item${on ? ' active' : ''}" data-level="${i}">${levelLabel(l, i)}</button>`;
+    });
+  qualityMenu.innerHTML = rows;
+}
+
+function openQualityMenu(anchor) {
+  buildQualityMenu();
+  qualityMenu.hidden = false;
+  const r  = anchor.getBoundingClientRect();
+  const mw = qualityMenu.offsetWidth;
+  const mh = qualityMenu.offsetHeight;
+  let left = Math.max(8, Math.min(r.left + r.width / 2 - mw / 2, window.innerWidth - mw - 8));
+  let top  = r.top - mh - 8;                 // open upward (controls sit low)
+  if (top < 8) top = r.bottom + 8;           // flip below if no room above
+  qualityMenu.style.left = left + 'px';
+  qualityMenu.style.top  = top + 'px';
+}
+
+function closeQualityMenu() { if (qualityMenu) qualityMenu.hidden = true; }
+
+function toggleQualityMenu(anchor) {
+  if (qualityMenu && !qualityMenu.hidden) closeQualityMenu();
+  else openQualityMenu(anchor);
+}
+
+for (const id of ['quality-btn','mob-quality-btn']) {
+  const btn = $(id); if (!btn) continue;
+  btn.addEventListener('click', e => { e.stopPropagation(); toggleQualityMenu(btn); });
+}
+document.addEventListener('click', e => {
+  if (qualityMenu && !qualityMenu.hidden
+      && !qualityMenu.contains(e.target)
+      && !e.target.closest('#quality-btn')
+      && !e.target.closest('#mob-quality-btn')) {
+    closeQualityMenu();
+  }
+});
+window.addEventListener('resize', closeQualityMenu);
+
 const app = $('app');
 
 function isMobile() { return window.innerWidth <= 900; }
@@ -1739,7 +1930,7 @@ document.addEventListener('keydown', e => {
 });
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
-  if(e.key==='m'){ isMuted=!isMuted; video.muted=isMuted; syncMuteBtn(); }
+  if(e.key==='m'){ toggleMute(); }
   if(e.key==='f') $('fullscreen-btn').click();
   if(e.key===' '){ e.preventDefault(); togglePlayPause(); }
   if(e.key==='b' && !isMobile()) app.classList.toggle('sidebar-hidden');
