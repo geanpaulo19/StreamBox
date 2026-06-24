@@ -27,6 +27,8 @@ const LS_LAST    = 'sb_last_channel';
 const LS_FAVS    = 'sb_favourites';
 const LS_HIST    = 'sb_history';
 const LS_VOL     = 'sb_volume';
+const LS_COUNTRY = 'sb_country';
+const LS_CAT     = 'sb_category';
 const MAX_HISTORY = 30;
 let   favourites = new Set(JSON.parse(localStorage.getItem(LS_FAVS) || '[]'));
 let   history    = (() => { try { return JSON.parse(localStorage.getItem(LS_HIST) || '[]'); } catch { return []; } })();
@@ -358,11 +360,31 @@ async function loadAll() {
   channelTotal.innerHTML = `<span>${allChannels.length.toLocaleString()}</span> channels`;
   loadBar.classList.add('done');
 
+  /* ── Restore last country + category filter ───────────────────
+     Read both before selectCountry() runs (it rewrites the saved
+     category to 'all'). */
+  const savedCountry = (() => { try { return localStorage.getItem(LS_COUNTRY); } catch { return null; } })();
+  const savedCat     = (() => { try { return localStorage.getItem(LS_CAT); }     catch { return null; } })();
+  if (savedCountry && savedCountry !== 'all' && allChannels.some(c => c.country === savedCountry)) {
+    const info = countryMap[savedCountry] || {};
+    selectCountry(savedCountry, info.flag || flagEmoji(savedCountry), info.name || savedCountry);
+  }
+  if (savedCat && savedCat !== 'all') {
+    const tab = document.querySelector(`.cat-tab[data-cat="${savedCat}"]`);
+    if (tab) {
+      document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentCat = savedCat;
+      applyFilters();
+    }
+  }
+
   const lastId = loadLastChannelId();
   if (lastId) {
     const last = allChannels.find(c => c.id === lastId);
     if (last) { isRestoring = true; setTimeout(() => switchTo(last), 300); }
-  } else {
+  } else if (!savedCountry || savedCountry === 'all') {
+    /* Only auto-detect country when the user has no saved filter */
     setTimeout(async () => {
       const code = await detectCountry();
       if (code && countryMap[code]) {
@@ -423,6 +445,9 @@ function selectCountry(value, flag, name) {
   document.querySelectorAll('.cat-tab').forEach(t => {
     t.classList.toggle('active', t.dataset.cat === 'all');
   });
+
+  /* Persist filter state so the user returns to the same view next visit */
+  try { localStorage.setItem(LS_COUNTRY, value); localStorage.setItem(LS_CAT, 'all'); } catch(e){}
 
   syncCatTabs();
   applyFilters();
@@ -987,6 +1012,7 @@ catTabs.addEventListener('click', e => {
   document.querySelectorAll('.cat-tab').forEach(t=>t.classList.remove('active'));
   tab.classList.add('active');
   currentCat = tab.dataset.cat;
+  try { localStorage.setItem(LS_CAT, currentCat); } catch(e){}
   applyFilters();
 });
 
@@ -1039,8 +1065,11 @@ function switchTo(ch, _isAutoRetry = false) {
   stopStallDetector();
   clearTimeout(stallTimer);
   bufferOvl.classList.add('show');  // show spinner immediately on channel switch
+  setReconnecting(_isAutoRetry ? _loadRetryCount : null);
   syncPlayPauseBtn();
   updateInfoBar(ch);
+  updateMediaSession(ch);
+  showZapControls(true);
   closeSidebar();
 
   const wasRestoring = isRestoring;
@@ -1082,6 +1111,64 @@ function switchTo(ch, _isAutoRetry = false) {
   }
 
   renderSuggestions();
+}
+
+/* ── Channel zapping — prev/next within the current filtered list ── */
+function zap(dir) {
+  if (!filteredChs.length) return;
+  let idx = currentChannel ? filteredChs.findIndex(c => c.id === currentChannel.id) : -1;
+  if (idx === -1) idx = dir > 0 ? -1 : 0;        // next → first, prev → last
+  let target = idx + dir;
+  if (target < 0) target = filteredChs.length - 1;        // wrap around
+  if (target >= filteredChs.length) target = 0;
+  switchTo(filteredChs[target]);
+}
+
+function showZapControls(on) {
+  const show = on && filteredChs.length > 1;
+  const prev = $('zap-prev'), next = $('zap-next');
+  if (prev) prev.hidden = !show;
+  if (next) next.hidden = !show;
+}
+
+$('zap-prev')?.addEventListener('click', e => { e.stopPropagation(); zap(-1); });
+$('zap-next')?.addEventListener('click', e => { e.stopPropagation(); zap(1);  });
+
+/* ── Reconnecting feedback shown under the buffering spinner ─────── */
+function setReconnecting(attempt) {
+  const el = $('buffer-text');
+  if (!el) return;
+  if (attempt && attempt > 0) {
+    el.textContent = `Reconnecting… (${attempt}/${MAX_AUTO_RETRIES})`;
+    el.hidden = false;
+  } else {
+    el.textContent = '';
+    el.hidden = true;
+  }
+}
+
+/* ── Media Session — OS / lock-screen now-playing + media keys ───── */
+function updateMediaSession(ch) {
+  if (!('mediaSession' in navigator) || typeof MediaMetadata === 'undefined') return;
+  try {
+    const artwork = ch.logo
+      ? [96,128,192,256,384,512].map(s => ({ src: ch.logo, sizes: `${s}x${s}` }))
+      : [];
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title:  ch.name,
+      artist: `${ch.ctname || ch.country} · ${TAB_LABEL[ch.cat] || ch.cat}`,
+      album:  'StreamBox — Live TV',
+      artwork,
+    });
+    const set = (action, handler) => {
+      try { navigator.mediaSession.setActionHandler(action, handler); } catch(e){}
+    };
+    set('play',          () => video.play().catch(() => {}));
+    set('pause',         () => video.pause());
+    set('stop',          () => video.pause());
+    set('previoustrack', () => zap(-1));
+    set('nexttrack',     () => zap(1));
+  } catch(e) { /* MediaMetadata unsupported — ignore */ }
 }
 
 /* ── HLS playback ───────────────────────────────────────────────── */
@@ -1318,6 +1405,7 @@ function bindHlsEvents() {
 /* Clear spinner and show Resume overlay when exiting fullscreen on mobile */
 function onFullscreenExit() {
   showBuf(false);
+  playerWrap.classList.remove('cursor-hidden');   // never leave cursor hidden outside fullscreen
   if (!currentChannel) return;
   /* Resume overlay only on mobile — desktop/laptop/tablet auto-resumes */
   if (isMobile()) {
@@ -1405,7 +1493,7 @@ document.addEventListener('webkitfullscreenchange', () => { if (!document.webkit
 video.addEventListener('webkitendfullscreen',       () => onFullscreenExit());
 /* 'waiting' and 'stalled' fire too eagerly on mobile (during normal
    ABR switches). We use the stall detector (currentTime polling) instead. */
-video.addEventListener('playing',    () => { showBuf(false); startStallDetector(); });
+video.addEventListener('playing',    () => { showBuf(false); setReconnecting(null); startStallDetector(); });
 video.addEventListener('canplay',    () => { showBuf(false); });
 video.addEventListener('error', () => {
   showBuf(false);
@@ -1425,6 +1513,8 @@ video.addEventListener('error', () => {
 function showErr(msg) {
   errorMsg.textContent = msg;
   errorOvl.classList.add('show');
+  setReconnecting(null);
+  bufferOvl.classList.remove('show');
   /* Hide play/pause when stream fails */
   const btn = $('playpause-btn');
   if (btn) btn.hidden = true;
@@ -1535,6 +1625,7 @@ function showToast(msg, ms=2400){
 }
 
 $('retry-btn').addEventListener('click',()=>{ if(!retryTarget) return; _loadRetryCount = 0; errorOvl.classList.remove('show'); switchTo(retryTarget); });
+$('next-btn')?.addEventListener('click', () => { errorOvl.classList.remove('show'); zap(1); });
 
 /* Clicking the mute hint unmutes */
 $('mute-hint').addEventListener('click', () => {
@@ -1700,22 +1791,37 @@ function syncPlayPauseBtn() {
 let playerIdleTimer = null;
 const playerWrap = $('player-wrap');
 
+function isFullscreen() {
+  return !!(document.fullscreenElement || document.webkitFullscreenElement);
+}
+
 function showPlayerControls() {
   playerWrap.classList.add('controls-visible');
+  playerWrap.classList.remove('cursor-hidden');   // reveal cursor on movement
   clearTimeout(playerIdleTimer);
   if (isPlaying) {
     playerIdleTimer = setTimeout(() => {
       playerWrap.classList.remove('controls-visible');
+      /* In fullscreen, also hide the cursor itself for a clean picture */
+      if (isFullscreen()) playerWrap.classList.add('cursor-hidden');
     }, 3000);
   }
 }
 
-playerWrap.addEventListener('mousemove',  showPlayerControls);
-playerWrap.addEventListener('mouseenter', showPlayerControls);
-playerWrap.addEventListener('mouseleave', () => {
-  clearTimeout(playerIdleTimer);
-  playerWrap.classList.remove('controls-visible');
-});
+/* Hover/leave behaviour is for real pointers only. On touch screens a tap
+   fires synthetic mouse events (incl. a phantom 'mouseleave') that would
+   yank the controls away a frame after they appear — touch uses the
+   tap-to-toggle path instead. */
+const _hasHover = window.matchMedia('(hover: hover)').matches;
+if (_hasHover) {
+  playerWrap.addEventListener('mousemove',  showPlayerControls);
+  playerWrap.addEventListener('mouseenter', showPlayerControls);
+  playerWrap.addEventListener('mouseleave', () => {
+    clearTimeout(playerIdleTimer);
+    playerWrap.classList.remove('controls-visible');
+    playerWrap.classList.remove('cursor-hidden');
+  });
+}
 
 function togglePlayPause() {
   if (!currentChannel) return;
@@ -1734,7 +1840,7 @@ function togglePlayPause() {
   }
 }
 
-video.addEventListener('play',  () => { isPlaying = true;  _lastBtnState = null; scheduleSyncBtn(); showPlayerControls(); startStallDetector(); });
+video.addEventListener('play',  () => { isPlaying = true;  _lastBtnState = null; scheduleSyncBtn(); showPlayerControls(); startStallDetector(); setMediaPlaybackState('playing'); });
 video.addEventListener('pause', () => {
   isPlaying = false;
   clearTimeout(stallTimer);
@@ -1744,7 +1850,15 @@ video.addEventListener('pause', () => {
   scheduleSyncBtn();
   clearTimeout(playerIdleTimer);
   playerWrap.classList.add('controls-visible');
+  playerWrap.classList.remove('cursor-hidden');
+  setMediaPlaybackState('paused');
 });
+
+function setMediaPlaybackState(state) {
+  if ('mediaSession' in navigator) {
+    try { navigator.mediaSession.playbackState = state; } catch(e){}
+  }
+}
 
 $('mute-btn').addEventListener('click', toggleMute);
 $('fullscreen-btn').addEventListener('click', toggleFullscreen);
@@ -1930,11 +2044,39 @@ document.addEventListener('keydown', e => {
 });
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
+  /* Don't hijack keys while a modal is open */
+  if(aboutOverlay.classList.contains('open')||helpOverlay.classList.contains('open')) return;
   if(e.key==='m'){ toggleMute(); }
   if(e.key==='f') $('fullscreen-btn').click();
   if(e.key===' '){ e.preventDefault(); togglePlayPause(); }
   if(e.key==='b' && !isMobile()) app.classList.toggle('sidebar-hidden');
   if(e.key==='/'){ e.preventDefault(); searchInput.focus(); }
+  /* ↑/↓ zap to previous / next channel (only once a channel is playing) */
+  if((e.key==='ArrowUp'||e.key==='ArrowDown') && currentChannel){ e.preventDefault(); zap(e.key==='ArrowUp'?-1:1); }
+});
+
+/* ── Tap/click the video ───────────────────────────────────────────
+   Touch: a tap always REVEALS all three controls (play/pause + zap),
+   never hides — it must not pause, or revealing would stop playback.
+   showPlayerControls() then auto-hides them after 3s while playing, and
+   leaves them up while paused (the pause handler keeps them visible).
+   Mouse: single click = play/pause, double-click = fullscreen. Overlays
+   sit above the <video>, so a bare event only lands here on the picture. */
+let _videoClickTimer = null;
+let _lastPointerType = 'mouse';
+video.addEventListener('pointerdown', e => { _lastPointerType = e.pointerType || 'mouse'; });
+video.addEventListener('click', () => {
+  if (_lastPointerType === 'touch') { showPlayerControls(); return; }
+  if (_videoClickTimer) return;          // a dblclick is in progress
+  _videoClickTimer = setTimeout(() => {
+    _videoClickTimer = null;
+    if (currentChannel) togglePlayPause();
+  }, 240);
+});
+video.addEventListener('dblclick', () => {
+  clearTimeout(_videoClickTimer);
+  _videoClickTimer = null;
+  toggleFullscreen();
 });
 
 
