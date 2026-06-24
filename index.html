@@ -209,6 +209,12 @@
             <div class="now-ch-name" id="now-name">—</div>
           </div>
         </div>
+        <button class="zap-btn zap-prev" id="zap-prev" aria-label="Previous channel" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <button class="zap-btn zap-next" id="zap-next" aria-label="Next channel" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
         <button class="player-playpause-btn" id="playpause-btn" aria-label="Play/Pause" hidden>
           <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </button>
@@ -221,13 +227,17 @@
 
       <div class="buffer-overlay" id="buffer-overlay">
         <div class="spinner"></div>
+        <div class="buffer-text" id="buffer-text" hidden></div>
       </div>
 
 
       <div class="error-overlay" id="error-overlay">
         <div class="error-icon">📡</div>
         <div class="error-msg" id="error-msg">Unable to connect to this stream.</div>
-        <button class="error-retry" id="retry-btn">Try Again</button>
+        <div class="error-actions">
+          <button class="error-retry" id="retry-btn">Try Again</button>
+          <button class="error-next" id="next-btn">Next Channel</button>
+        </div>
       </div>
     </div>
 
@@ -401,7 +411,7 @@
     <div class="about-meta">
       <span id="about-channel-count">— channels available</span>
       <span class="about-dot">·</span>
-      <span>Version 1.2.0</span>
+      <span>Version 1.3.0</span>
       <span class="about-dot">·</span>
       <span>Open Source</span>
     </div>
