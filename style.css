@@ -553,6 +553,12 @@ input[type="search"]::-webkit-search-decoration { display: none; -webkit-appeara
   border-radius:50%; animation:spin .8s linear infinite;
 }
 @keyframes spin { to{transform:rotate(360deg)} }
+.buffer-overlay { flex-direction:column; gap:14px; }
+.buffer-text {
+  font-size:.78rem; font-weight:500; color:var(--txt-2);
+  letter-spacing:.02em; text-align:center;
+}
+.buffer-text[hidden] { display:none; }
 
 .error-overlay {
   position:absolute; inset:0; display:none;
@@ -562,6 +568,7 @@ input[type="search"]::-webkit-search-decoration { display: none; -webkit-appeara
 .error-overlay.show { display:flex; }
 .error-icon { font-size:2.2rem; }
 .error-msg  { font-size:.86rem; color:var(--txt-2); max-width:260px; line-height:1.6; white-space:pre-line; }
+.error-actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
 .error-retry {
   background:var(--accent); color:#fff; border-radius:var(--r-sm);
   padding:8px 20px; font-size:.8rem; font-weight:600;
@@ -569,6 +576,12 @@ input[type="search"]::-webkit-search-decoration { display: none; -webkit-appeara
   transition:opacity .2s; pointer-events:all;
 }
 .error-retry:hover { opacity:.8; }
+.error-next {
+  background:transparent; color:var(--txt-1); border:1px solid var(--border-active);
+  border-radius:var(--r-sm); padding:8px 20px; font-size:.8rem; font-weight:600;
+  font-family:var(--font); cursor:pointer; transition:background .2s,border-color .2s; pointer-events:all;
+}
+.error-next:hover { background:var(--bg-card); }
 
 .idle-screen {
   position:absolute; inset:0;
@@ -1161,3 +1174,33 @@ input[type="search"]::-webkit-search-decoration { display: none; -webkit-appeara
 #player-wrap.controls-visible .player-playpause-btn:not([hidden]) {
   opacity: 1;
 }
+
+/* ── Channel zap buttons (prev/next on the player edges) ───────── */
+.zap-btn {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 44px; height: 44px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: rgba(8,9,14,.7); color: #fff;
+  border: 1px solid rgba(255,255,255,.15);
+  cursor: pointer; pointer-events: none; z-index: 11;
+  opacity: 0; transition: opacity .2s var(--ease), background .18s, transform .15s;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.zap-btn[hidden] { display: none; }
+.zap-btn svg { width: 20px; height: 20px; }
+.zap-prev { left: 14px; }
+.zap-next { right: 14px; }
+.zap-btn:hover { background: rgba(30,36,52,.92); border-color: var(--border-active); }
+.zap-btn:active { transform: translateY(-50%) scale(.92); }
+/* Visible (and tappable) only while the controls are showing — on both
+   mouse (hover/idle timer) and touch (tap toggles .controls-visible). */
+#player-wrap.controls-visible .zap-btn:not([hidden]) { opacity: 1; pointer-events: all; }
+@media (max-width: 900px) {
+  .zap-btn { width: 40px; height: 40px; }
+}
+
+/* ── Auto-hide cursor when idle in fullscreen ─────────────────── */
+#player-wrap:fullscreen.cursor-hidden,
+#player-wrap:fullscreen.cursor-hidden * { cursor: none; }
+#player-wrap:-webkit-full-screen.cursor-hidden,
+#player-wrap:-webkit-full-screen.cursor-hidden * { cursor: none; }
